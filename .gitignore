@@ -1,0 +1,7 @@
+.env
+*.session*
+__pycache__/
+.data/
+data/raw/
+data/processed/
+reports/figures/
