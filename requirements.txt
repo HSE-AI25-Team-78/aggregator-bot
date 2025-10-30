@@ -1,6 +1,3 @@
 telethon
 pandas
 python-dotenv
-matplotlib
-wordcloud
-nltk
