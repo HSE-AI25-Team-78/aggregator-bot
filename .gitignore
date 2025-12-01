@@ -61,16 +61,7 @@ data/models/*
 *.joblib
 *.pkl
 
-# Experiment results (можно оставить CSV если хочешь)
-data/results/*.png
-data/results/**/*.png
-data/results/**/*.pdf
 
-# Large experiment CSV, можно убирать выборочно
-data/results/**/*.csv
-
-# But keep final report
-!data/results/report.md
 
 # -----------------------------
 # Logs

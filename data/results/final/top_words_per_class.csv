@@ -1,0 +1,101 @@
+topic,rank,word,weight,direction
+economy,1,рбк,6.999923581944038,positive
+economy,2,бусты,5.017991508471701,positive
+economy,3,на бусты,4.887256276677006,positive
+economy,4,forbes,4.505748257365792,positive
+economy,5,рбк telegram,4.404037492376661,positive
+economy,6,telegram max,4.370920439968876,positive
+economy,7,подписывайтесь,3.896338191595703,positive
+economy,8,подписывайтесь на,3.8189998613127223,positive
+economy,9,telegram,2.838122298580173,positive
+economy,10,россии,2.451037902120527,positive
+economy,11,фото,2.338770926839885,positive
+economy,12,сообщил,2.253148702092292,positive
+economy,13,по,2.1383293731855098,positive
+economy,14,руб,2.124039167723774,positive
+economy,15,млрд,2.1207095610271174,positive
+economy,16,max,2.083566994293098,positive
+economy,17,млн,1.9416370861700796,positive
+economy,18,на сайте,1.921691107214448,positive
+economy,19,эксперты,1.8638972296146228,positive
+economy,20,компании,1.767538771670565,positive
+it,1,всё,2.8217137287612784,positive
+it,2,просто,2.3487413564576602,positive
+it,3,посмотрим,2.1778603047799256,positive
+it,4,погрузимся,2.164375192426032,positive
+it,5,windows,2.1374980552495604,positive
+it,6,выясним,2.055550585136128,positive
+it,7,microsoft,2.0225958832332984,positive
+it,8,it,1.9918814170200727,positive
+it,9,python,1.9430904167999201,positive
+it,10,код,1.9338427966079035,positive
+it,11,когда,1.8561150999251024,positive
+it,12,разберёмся,1.832211947834962,positive
+it,13,ещё,1.813070918988471,positive
+it,14,ии,1.717436153421534,positive
+it,15,автор,1.6612842994127008,positive
+it,16,cas,1.5877824364268747,positive
+it,17,это,1.505633406483413,positive
+it,18,свой,1.4972978059607116,positive
+it,19,узнаем,1.4767941306385182,positive
+it,20,как,1.4190163337863524,positive
+politics,1,подписаться на,5.961133015435342,positive
+politics,2,подписаться,5.9566099555849155,positive
+politics,3,vpn,5.467172680300165,positive
+politics,4,на риа,4.689314029478392,positive
+politics,5,риа,4.661196422615909,positive
+politics,6,риа новости,4.642402392552547,positive
+politics,7,новости,3.9558907488786565,positive
+politics,8,без vpn,3.9445340371170152,positive
+politics,9,зеркало,3.9217611489563446,positive
+politics,10,rt,3.784365099568746,positive
+politics,11,сайт,3.633275241350727,positive
+politics,12,открыть,3.1813042461625876,positive
+politics,13,тг зеркало,3.0097821454413243,positive
+politics,14,rt тг,3.0097821454413243,positive
+politics,15,зеркало max,3.0097821454413243,positive
+politics,16,на rt,3.0097821454413243,positive
+politics,17,тг,2.974363059458209,positive
+politics,18,что,2.8927776015816575,positive
+politics,19,whatsapp,2.7082774869585267,positive
+politics,20,сайт без,2.7026191530925883,positive
+science,1,ученые,4.553387754012902,positive
+science,2,подкасте,2.821630067739333,positive
+science,3,постнауки,2.061870308436788,positive
+science,4,обнаружили,2.0005201548599096,positive
+science,5,они,1.8956826603302246,positive
+science,6,наук,1.7412373279642455,positive
+science,7,наука,1.5627590428467069,positive
+science,8,физики,1.5367503398403917,positive
+science,9,археологи,1.5325681557103235,positive
+science,10,гид,1.5212370605243084,positive
+science,11,астрономы,1.461468997289056,positive
+science,12,вселенной,1.401693698280859,positive
+science,13,вы,1.3449376546285163,positive
+science,14,процентов,1.2920989722778613,positive
+science,15,исследователи,1.268289489946119,positive
+science,16,технологии,1.2629060202579154,positive
+science,17,лет назад,1.2533040413504255,positive
+science,18,назад,1.2054209499780593,positive
+science,19,однако,1.1994416349058368,positive
+science,20,здоровье,1.183775973312837,positive
+sport,1,гол,4.930464300015437,positive
+sport,2,приложении,4.496580679523054,positive
+sport,3,приложении гол,4.468709732101721,positive
+sport,4,фрибет,3.595982799059757,positive
+sport,5,спортс,3.5337245831831456,positive
+sport,6,на спортс,3.4361088474891464,positive
+sport,7,сезона,2.870176104059268,positive
+sport,8,фрибет рублей,2.5581112104762127,positive
+sport,9,рекорды,2.5283853318719203,positive
+sport,10,рекорды сезона,2.492560632058564,positive
+sport,11,сезона приложении,2.492560632058564,positive
+sport,12,все рекорды,2.4836645574556258,positive
+sport,13,матча,2.384495009806903,positive
+sport,14,подписывайтесь на,2.1136543560095915,positive
+sport,15,рублей,2.097671826779031,positive
+sport,16,подписывайтесь,2.050627033834206,positive
+sport,17,статистика,2.0426610901198505,positive
+sport,18,fonbet,1.9400129156452361,positive
+sport,19,сборной,1.9021729953579736,positive
+sport,20,матче,1.8889074656549825,positive
