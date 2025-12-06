@@ -1,0 +1,82 @@
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.log
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Byte-compiled
+*.pyc
+
+# -----------------------------
+# PyCharm
+# -----------------------------
+.idea/
+*.iml
+
+# -----------------------------
+# OS files
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# Project data files
+# -----------------------------
+
+# Raw dataset and intermediate files
+data/raw_posts_labeled.csv
+data/processed_posts.csv
+
+# Train/val/test splits
+data/splits/*
+
+# Telethon session files
+*.session
+*.session-journal
+
+# Cached API data
+parser-module/__pycache__/
+parser-module/*.session
+parser-module/*.session-journal
+
+# -----------------------------
+# ML artifacts
+# -----------------------------
+
+# Saved models (joblib, pickle)
+data/models/*
+*.joblib
+*.pkl
+
+
+
+# -----------------------------
+# Logs
+# -----------------------------
+logs/
+*.log
+
+# -----------------------------
+# Environment variables
+# -----------------------------
+.env
+*.env
+
+# -----------------------------
+# Misc
+# -----------------------------
+*.swp
+*.swo
