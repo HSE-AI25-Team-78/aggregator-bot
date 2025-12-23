@@ -42,7 +42,7 @@ class DataAccessObject:
         self.engine = create_engine('sqlite:///aggregator_bot.db', echo=False)
         Base.metadata.create_all(self.engine)
         self.model_version = model_version
-        self._init_admin_user()  
+        # self._init_admin_user()  
         
     def _init_admin_user(self):
         """Создает администратора по умолчанию если его нет"""
@@ -110,7 +110,7 @@ class DataAccessObject:
         except Exception as e:
             print(f"Error deleting history: {e}")
             return False
-            
+
     def get_user_by_username(self, username: str) -> Optional[User]:
         with Session(self.engine) as session:
             return session.execute(
