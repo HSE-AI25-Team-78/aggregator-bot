@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 
@@ -23,3 +23,9 @@ class HistoryItem(BaseModel):
 class HistoryResponse(BaseModel):
     items: List[HistoryItem]
     count: int
+
+class StatsResponse(BaseModel):
+    request_stats: Dict[str, Any]
+    input_stats: Dict[str, Any]
+
+
