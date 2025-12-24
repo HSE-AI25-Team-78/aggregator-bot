@@ -1,20 +1,23 @@
-# Use an official Python version that matches your requirements (e.g., 3.9)
 FROM python:3.11-slim
+
+# Install uv permanently in the image
+RUN pip install --no-cache-dir uv
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first (for better caching)
-COPY requirements.txt .
+# Copy dependency management files
+COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies using the lockfile
+RUN uv sync --locked --no-cache
 
-# Copy the rest of your code
+# Copy application code (after dependencies for better caching)
 COPY . .
 
-RUN alembic upgrade head
+# Run database migrations
+RUN uv run alembic upgrade head
 
 WORKDIR /app/service
 
-CMD uvicorn app:app --host 0.0.0.0
+CMD uv run uvicorn app:app --host 0.0.0.0

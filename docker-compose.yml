@@ -1,10 +1,9 @@
 version: '3.8'
 services:
-  my-python-app:
+  aggregator-bot:
     build: .
     stdin_open: true # docker run -i
     tty: true        # docker run -t
-
     ports:
       - "8080:8000"
     volumes:
