@@ -12,3 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of your code
 COPY . .
+
+RUN alembic upgrade head
+
+WORKDIR /app/service
+
+CMD uvicorn app:app --host 0.0.0.0

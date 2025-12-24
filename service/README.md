@@ -4,3 +4,5 @@
 ```bash
 uvicorn app:app
 ```
+
+После сборки контейнера доступен на <http://localhost:8080/docs>

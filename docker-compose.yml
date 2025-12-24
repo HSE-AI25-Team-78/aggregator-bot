@@ -9,4 +9,3 @@ services:
       - "8080:8000"
     volumes:
       - ./:/app  # This syncs your entire project folder
-    command: bash
