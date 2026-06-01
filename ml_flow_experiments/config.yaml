@@ -1,0 +1,33 @@
+  data:
+    train_path: ./splits/train.csv
+    val_path: ./splits/val.csv
+    test_path: ./splits/test.csv
+    text_col: text_clean
+    target_col: topic
+
+  tfidf:
+    ngram_range: [1, 2]
+    min_df: 3
+    max_features: 20000
+
+  model:
+    name: LogisticRegression
+    max_iter: 2000
+    C: 1.0
+    solver: lbfgs
+    n_jobs: -1
+    random_state: 42
+
+  baseline:
+    name: MultinomialNB
+    alpha: 1.0
+
+  mlflow:
+    experiment_name: text_classification_prd
+    tracking_uri: http://localhost:5050
+    s3_endpoint_url: http://localhost:9005
+    aws_access_key_id: admin
+    aws_secret_access_key: password
+    artifact_location: mlflow-artifacts:/
+
+  seed: 42
