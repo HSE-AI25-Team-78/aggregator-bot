@@ -1,0 +1,27 @@
+channel,rows,status,raw_path,flat_path
+@rbc_news,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\rbc_news.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\rbc_news.csv
+@forbesrussia,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\forbesrussia.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\forbesrussia.csv
+@kommersant,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\kommersant.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\kommersant.csv
+@fincult,0,"error: No user has ""fincult"" as username",,
+@tproger_news,0,"error: No user has ""tproger_news"" as username",,
+@xakaton_it,0,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\xakaton_it.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\xakaton_it.csv
+@devschacht,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\devschacht.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\devschacht.csv
+@codeblog,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\codeblog.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\codeblog.csv
+@habr_com,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\habr_com.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\habr_com.csv
+@sportsru,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\sportsru.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\sportsru.csv
+@championatrunews,0,"error: No user has ""championatrunews"" as username",,
+@matchtv,0,"error: No user has ""matchtv"" as username",,
+@nplusone,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\nplusone.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\nplusone.csv
+@postnauka,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\postnauka.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\postnauka.csv
+@polden2035,0,"error: No user has ""polden2035"" as username",,
+@science_and_life,0,error: Nobody is using this username or the username is unacceptable (caused by ResolveUsernameRequest),,
+@rt_russian,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\rt_russian.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\rt_russian.csv
+@rian_ru,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\rian_ru.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\rian_ru.csv
+@meduzalive,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\meduzalive.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\meduzalive.csv
+@bbcrussian,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\bbcrussian.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\bbcrussian.csv
+@tass_agency,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\tass_agency.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\tass_agency.csv
+@mosrutop,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\mosrutop.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\mosrutop.csv
+@ENews112,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\ENews112.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\ENews112.csv
+@d_code,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\d_code.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\d_code.csv
+@headlines_for_traders,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\headlines_for_traders.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\headlines_for_traders.csv
+@aviadispet4er,2500,ok,C:\Users\Yaroslav\Documents\aggregator-bot\data\raw\aviadispet4er.csv,C:\Users\Yaroslav\Documents\aggregator-bot\data\aviadispet4er.csv

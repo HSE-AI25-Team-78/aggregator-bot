@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-from pathlib import Path
 from textwrap import indent
 
 import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import classification_report, f1_score
-
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT_DIR / "data"
-SPLIT_DIR = DATA_DIR / "splits"
-RESULTS_DIR = DATA_DIR / "results"
-MODELS_DIR = DATA_DIR / "models" / "logreg_tfidf"
+from .paths import (
+    FINAL_RESULTS_DIR,
+    LOGREG_MODELS_DIR,
+    PROCESSED_PATH,
+    RESULTS_DIR,
+    SPLIT_DIR,
+    TEST_PATH,
+    TRAIN_PATH,
+    VAL_PATH,
+    ensure_artifact_dirs,
+)
 
 REPORT_PATH = RESULTS_DIR / "report.md"
 
@@ -31,34 +34,34 @@ def format_df_as_md(df: pd.DataFrame, max_rows: int = 10) -> str:
         df_show = df
         note = ""
 
-    md_table = df_show.to_markdown(index=False)
+    header = "| " + " | ".join(str(column) for column in df_show.columns) + " |"
+    separator = "| " + " | ".join("---" for _ in df_show.columns) + " |"
+    rows = []
+    for _, row in df_show.iterrows():
+        rows.append("| " + " | ".join(str(value) for value in row.tolist()) + " |")
+    md_table = "\n".join([header, separator, *rows])
     return md_table + note
 
 
 def add_dataset_info(parts: list[str]) -> None:
-    processed_path = DATA_DIR / "processed_posts.csv"
-    if not processed_path.exists():
+    if not PROCESSED_PATH.exists():
         parts.append(section("Обзор датасета"))
         parts.append("Файл `processed_posts.csv` не найден. Сначала запусти `ml.preprocess`.\n")
         return
 
     parts.append(section("Обзор датасета"))
 
-    df_proc = pd.read_csv(processed_path)
+    df_proc = pd.read_csv(PROCESSED_PATH)
     n_total = len(df_proc)
     topics = df_proc["topic"].value_counts() if "topic" in df_proc.columns else None
 
     parts.append(f"- Всего сообщений после предобработки: **{n_total}**\n")
 
     # размеры сплитов
-    train_path = SPLIT_DIR / "train.csv"
-    val_path = SPLIT_DIR / "val.csv"
-    test_path = SPLIT_DIR / "test.csv"
-
-    if train_path.exists() and val_path.exists() and test_path.exists():
-        df_train = pd.read_csv(train_path)
-        df_val = pd.read_csv(val_path)
-        df_test = pd.read_csv(test_path)
+    if TRAIN_PATH.exists() and VAL_PATH.exists() and TEST_PATH.exists():
+        df_train = pd.read_csv(TRAIN_PATH)
+        df_val = pd.read_csv(VAL_PATH)
+        df_test = pd.read_csv(TEST_PATH)
 
         parts.append(f"- Train: **{len(df_train)}** строк")
         parts.append(f"- Val: **{len(df_val)}** строк")
@@ -148,12 +151,11 @@ def add_model_efficiency(parts: list[str]) -> None:
 def add_final_model_metrics(parts: list[str]) -> None:
     parts.append(section("Финальная модель: качество на test"))
 
-    tfidf_path = MODELS_DIR / "tfidf.joblib"
-    model_path = MODELS_DIR / "logreg_model.joblib"
-    le_path = MODELS_DIR / "label_encoder.joblib"
-    test_path = SPLIT_DIR / "test.csv"
+    tfidf_path = LOGREG_MODELS_DIR / "tfidf.joblib"
+    model_path = LOGREG_MODELS_DIR / "logreg_model.joblib"
+    le_path = LOGREG_MODELS_DIR / "label_encoder.joblib"
 
-    if not (tfidf_path.exists() and model_path.exists() and le_path.exists() and test_path.exists()):
+    if not (tfidf_path.exists() and model_path.exists() and le_path.exists() and TEST_PATH.exists()):
         parts.append(
             "Не найдены артефакты финальной модели или test.csv. "
             "Сначала запусти `ml.train_final_model` и `ml.dataset_split`.\n"
@@ -163,7 +165,7 @@ def add_final_model_metrics(parts: list[str]) -> None:
     tfidf = joblib.load(tfidf_path)
     model = joblib.load(model_path)
     le = joblib.load(le_path)
-    df_test = pd.read_csv(test_path)
+    df_test = pd.read_csv(TEST_PATH)
 
     text_col = "text_clean" if "text_clean" in df_test.columns else "text"
     X_test = tfidf.transform(df_test[text_col].astype(str))
@@ -174,7 +176,12 @@ def add_final_model_metrics(parts: list[str]) -> None:
     f1 = f1_score(y_true, y_pred, average="macro")
     parts.append(f"- F1-macro на test: **{f1:.4f}**\n")
 
-    report = classification_report(y_true, y_pred, target_names=list(le.classes_))
+    report = classification_report(
+        y_true,
+        y_pred,
+        target_names=[str(label) for label in le.classes_],
+        zero_division=0,
+    )
     parts.append("\nКлассификационный отчёт по классам:\n\n")
     parts.append("```text\n" + report + "\n```")
 
@@ -198,7 +205,7 @@ def add_top_words(parts: list[str]) -> None:
 
 
 def main() -> None:
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_artifact_dirs()
 
     parts: list[str] = []
     parts.append("# Отчёт по ML-части проекта бота-агрегатора\n")

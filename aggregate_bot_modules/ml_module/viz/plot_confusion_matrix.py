@@ -1,27 +1,16 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix
+from ..paths import FINAL_RESULTS_DIR, LOGREG_MODELS_DIR, TEST_PATH
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
-SPLIT_DIR = DATA_DIR / "splits"
-MODELS_DIR = DATA_DIR / "models" / "logreg_tfidf"
-
-TEST_PATH = SPLIT_DIR / "test.csv"
-
-TFIDF_PATH = MODELS_DIR / "tfidf.joblib"
-MODEL_PATH = MODELS_DIR / "logreg_model.joblib"
-LE_PATH = MODELS_DIR / "label_encoder.joblib"
-
-RESULTS_DIR = DATA_DIR / "results" / "final"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-PLOT_PATH = RESULTS_DIR / "confusion_matrix.png"
+TFIDF_PATH = LOGREG_MODELS_DIR / "tfidf.joblib"
+MODEL_PATH = LOGREG_MODELS_DIR / "logreg_model.joblib"
+LE_PATH = LOGREG_MODELS_DIR / "label_encoder.joblib"
+PLOT_PATH = FINAL_RESULTS_DIR / "confusion_matrix.png"
 
 
 def main():

@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import pandas as pd
+from ..paths import BASELINE_RESULTS_DIR
 
-# ROOT: aggregator-bot
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
-RESULTS_DIR = DATA_DIR / "results" / "baseline"
-RESULTS_PATH = RESULTS_DIR / "baseline_results.csv"
-PLOT_PATH = RESULTS_DIR / "baseline_f1.png"
+RESULTS_PATH = BASELINE_RESULTS_DIR / "baseline_results.csv"
+PLOT_PATH = BASELINE_RESULTS_DIR / "baseline_f1.png"
 
 
 def main():
