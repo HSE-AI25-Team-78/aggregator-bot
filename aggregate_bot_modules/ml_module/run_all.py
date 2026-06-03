@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from . import preprocess
 from . import dataset_split
 from . import baseline_models
@@ -11,14 +9,7 @@ from . import experiments_vectorizers
 from . import model_efficiency
 from . import feature_importance
 from .viz import plot_baseline_results, plot_confusion_matrix, plot_logreg_tuning
-
-
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-PROCESSED_PATH = DATA_DIR / "processed_posts.csv"
-SPLIT_DIR = DATA_DIR / "splits"
-TRAIN_PATH = SPLIT_DIR / "train.csv"
-VAL_PATH = SPLIT_DIR / "val.csv"
-TEST_PATH = SPLIT_DIR / "test.csv"
+from .paths import PROCESSED_PATH, RAW_PATH, SPLIT_DIR, TEST_PATH, TRAIN_PATH, VAL_PATH, ensure_artifact_dirs
 
 
 def step_preprocess():
@@ -96,8 +87,9 @@ def step_advanced_experiments():
 
 
 def main():
+    ensure_artifact_dirs()
     print("=== Запуск полного ML-пайплайна для бота-агрегатора ===")
-    print("Предполагается, что raw_posts_labeled.csv уже собран парсером.")
+    print(f"Канонический датасет: {RAW_PATH}")
 
     step_preprocess()
     step_split()

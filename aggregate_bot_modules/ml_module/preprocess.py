@@ -1,14 +1,8 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
-
 import pandas as pd
-
-
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-RAW_PATH = DATA_DIR / "raw_posts_labeled.csv"
-PROCESSED_PATH = DATA_DIR / "processed_posts.csv"
+from .paths import PROCESSED_PATH, RAW_PATH, ensure_artifact_dirs
 
 
 URL_RE = re.compile(r"http\S+|www\.\S+|t\.me/\S+")
@@ -47,7 +41,7 @@ def clean_text(text: str) -> str:
 
 def main(min_len: int = 10) -> None:
     """
-    Загружаем сырой датасет → чистим тексты → фильтруем совсем короткие →
+    Загружаем сырой датасет -> чистим тексты -> фильтруем совсем короткие ->
     сохраняем processed_posts.csv
     """
     if not RAW_PATH.exists():
@@ -71,7 +65,7 @@ def main(min_len: int = 10) -> None:
     # Фильтруем слишком короткие очищенные тексты
     before_len = len(df)
     df = df[df["text_clean"].str.len() >= min_len]
-    print(f"[*] Убрали слишком короткие тексты: {before_len} → {len(df)}")
+    print(f"[*] Убрали слишком короткие тексты: {before_len} -> {len(df)}")
 
     df = df.drop_duplicates(subset=["text_clean", "topic"], keep="first")
 
@@ -83,7 +77,7 @@ def main(min_len: int = 10) -> None:
 
     df = df[keep_cols]
 
-    DATA_DIR.mkdir(exist_ok=True)
+    ensure_artifact_dirs()
     df.to_csv(PROCESSED_PATH, index=False)
 
     print(f"[+] Обработанный датасет сохранён: {PROCESSED_PATH} (строк: {len(df)})")

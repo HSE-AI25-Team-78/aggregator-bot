@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -15,19 +13,9 @@ from sklearn.metrics import (
     recall_score,
 )
 from sklearn.preprocessing import LabelEncoder
+from .paths import BASELINE_RESULTS_DIR, TRAIN_PATH, VAL_PATH, ensure_artifact_dirs
 
-
-# Пути к данным
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-SPLIT_DIR = DATA_DIR / "splits"
-
-TRAIN_PATH = SPLIT_DIR / "train.csv"
-VAL_PATH = SPLIT_DIR / "val.csv"
-
-RESULTS_DIR = DATA_DIR / "results" / "baseline"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-
-RESULTS_PATH = RESULTS_DIR / "baseline_results.csv"
+RESULTS_PATH = BASELINE_RESULTS_DIR / "baseline_results.csv"
 
 
 def load_data():
@@ -98,6 +86,7 @@ def evaluate_model(name: str, model, X_train, y_train, X_val, y_val):
 
 
 def main():
+    ensure_artifact_dirs()
     df_train, df_val, text_col = load_data()
 
     X_train, X_val, tfidf = vectorize_text(df_train, df_val, text_col)

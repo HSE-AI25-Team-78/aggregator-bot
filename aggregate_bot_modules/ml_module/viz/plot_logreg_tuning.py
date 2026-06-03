@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import pandas as pd
+from ..paths import EXPERIMENTS_RESULTS_DIR
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
-RESULTS_DIR = DATA_DIR / "results" / "experiments"
-
-TUNING_PATH = RESULTS_DIR / "logreg_tuning.csv"
-PLOT_PATH = RESULTS_DIR / "logreg_tuning_f1.png"
+TUNING_PATH = EXPERIMENTS_RESULTS_DIR / "logreg_tuning.csv"
+PLOT_PATH = EXPERIMENTS_RESULTS_DIR / "logreg_tuning_f1.png"
 
 
 def main():
