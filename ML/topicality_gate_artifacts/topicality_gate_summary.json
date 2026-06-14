@@ -1,0 +1,16 @@
+{
+  "rows": 258,
+  "train_rows": 206,
+  "test_rows": 52,
+  "general_threshold": 0.35,
+  "topical_threshold": 0.55,
+  "metrics": {
+    "accuracy": 0.8846153846153846,
+    "f1_binary": 0.9387755102040817,
+    "precision_binary": 0.8846153846153846,
+    "recall_binary": 1.0
+  },
+  "topical_rate_train": 0.8738,
+  "topical_rate_test": 0.8846,
+  "mean_topical_probability": 0.6966
+}

@@ -1,0 +1,67 @@
+{
+  "text_column": "text_clean",
+  "row_counts": {
+    "train": 179,
+    "val": 39,
+    "test": 39,
+    "train_full": 218
+  },
+  "class_count": 11,
+  "classes": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10"
+  ],
+  "vectorizer": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 1,
+    "max_features": 10000,
+    "sublinear_tf": true,
+    "vocabulary_size": 10000
+  },
+  "models": {
+    "logreg": {
+      "params": {
+        "max_iter": 3000,
+        "C": 2.0
+      },
+      "metrics": {
+        "model_name": "LogisticRegression",
+        "f1_macro": 0.11794477545006087,
+        "accuracy": 0.3333333333333333,
+        "precision_macro": 0.18315508021390373,
+        "recall_macro": 0.14805194805194805
+      }
+    },
+    "deploy_nb": {
+      "params": {
+        "alpha": 1.0
+      },
+      "metrics": {
+        "model_name": "MultinomialNB",
+        "f1_macro": 0.05754352030947776,
+        "accuracy": 0.2564102564102564,
+        "precision_macro": 0.11244019138755981,
+        "recall_macro": 0.10389610389610389
+      }
+    }
+  },
+  "comparison": {
+    "logreg_minus_nb_f1_macro": 0.06040125514058311
+  },
+  "git": {
+    "branch": "feature/chekpoint7_bot",
+    "commit": "563c298240f32f4b2193c8222ebb28c4a0752ee5"
+  }
+}

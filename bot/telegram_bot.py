@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib import error, request
 
 from .channel_importer import build_importer
+from .event_builder import EventCluster
 from .recommender import NewsItem, NewsRecommender
 from .storage import UserStorage
 
@@ -33,7 +34,8 @@ MAIN_MENU_BUTTONS = [
 
 MORE_MENU_BUTTONS = [
     ["⚙️ Настроить интересы", "🧾 Мой профиль"],
-    ["🧹 Сбросить профиль", "ℹ️ Помощь"],
+    ["🎛 Управление лентой", "🧹 Сбросить профиль"],
+    ["ℹ️ Помощь"],
     [BACK_BUTTON],
 ]
 
@@ -79,10 +81,24 @@ SOURCE_DISPLAY_MAP = {
     "nplusone": "N + 1",
     "headlines_for_traders": "Headlines for Traders",
 }
+TOPIC_ICON_MAP = {
+    "Общее": "📰",
+    "Наука и техника": "🔬",
+    "ИТ и телекоммуникации": "💻",
+    "Общество, государство, политика": "🏛",
+    "Экономика": "📈",
+    "Медицина": "🩺",
+    "Искусство и культура": "🎭",
+    "Развлечения": "🎬",
+    "Спорт": "🏅",
+    "История": "📚",
+    "Происшествия": "🚨",
+}
 
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 URL_RE = re.compile(r"https?://\S+|www\.\S+")
 MARKUP_ARTIFACT_RE = re.compile(r"[*_`#>{}\[\]]+")
+HASHTAG_RE = re.compile(r"(?<!\w)#[\wа-яА-ЯёЁ]+")
 
 DEFAULT_SOURCE_CHOICES = [
     "kommersant",
@@ -135,6 +151,9 @@ class TelegramNewsBot:
         self.storage = storage
         self.base_url = f"https://api.telegram.org/bot{token}"
         self.importer = build_importer(IMPORTED_CHANNELS_DIR)
+
+    def _log_event(self, event_type: str, user_id: int, **payload) -> None:
+        self.storage.log_event(event_type, user_id, payload)
 
     def _refresh_recommender_if_needed(self) -> None:
         self.recommender.reload_if_changed(min_check_interval_seconds=45)
@@ -199,6 +218,14 @@ class TelegramNewsBot:
             if item_id in profile["disliked_ids"]:
                 profile["disliked_ids"].remove(item_id)
             self.storage.update_profile(user_id, profile)
+            item = self.recommender.get_item(item_id)
+            self._log_event(
+                "feedback_like",
+                user_id,
+                item_id=item_id,
+                source=item.source if item else None,
+                topic=item.predicted_label if item else None,
+            )
             self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Лайк учтён."})
             return
 
@@ -209,18 +236,30 @@ class TelegramNewsBot:
             if item_id in profile["liked_ids"]:
                 profile["liked_ids"].remove(item_id)
             self.storage.update_profile(user_id, profile)
+            item = self.recommender.get_item(item_id)
+            self._log_event(
+                "feedback_dislike",
+                user_id,
+                item_id=item_id,
+                source=item.source if item else None,
+                topic=item.predicted_label if item else None,
+            )
             self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Ок, это уберу из приоритета."})
             return
 
         if data.startswith("more:"):
             item_id = data.split(":", 1)[1]
             self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Подбираю похожие новости..."})
-            recommendations = self.recommender.similar_to_item(
-                item_id,
-                limit=3,
-                boosted_sources=self._boosted_sources(profile),
-                source_boost=0.12,
-                exclude_ids=set(profile["shown_ids"]),
+            self._log_event("open_similar", user_id, item_id=item_id)
+            recommendations = self._filter_items_for_profile(
+                self.recommender.similar_events_to_item(
+                    item_id,
+                    limit=3,
+                    boosted_sources=self._boosted_sources(profile),
+                    source_boost=0.12,
+                    exclude_ids=set(profile["shown_ids"]),
+                ),
+                profile,
             )
             self._send_news_batch(
                 chat_id,
@@ -230,6 +269,131 @@ class TelegramNewsBot:
                 explanation_mode="similar",
                 anchor_item=self.recommender.get_item(item_id),
             )
+            return
+
+        if data.startswith("why:"):
+            item_id = data.split(":", 1)[1]
+            item = self.recommender.get_item(item_id)
+            if item is None:
+                self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Новость уже недоступна."})
+                return
+            self._log_event("open_why", user_id, item_id=item_id, source=item.source, topic=item.predicted_label)
+            self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Поясняю выбор."})
+            self._send_message(chat_id, self._build_why_message(item, profile))
+            return
+
+        if data.startswith("eventmore:"):
+            item_id = data.split(":", 1)[1]
+            anchor_item = self.recommender.get_item(item_id)
+            if anchor_item is None:
+                self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Сюжет уже недоступен."})
+                return
+            related_event = self.recommender.get_item_event(item_id)
+            related_items = self.recommender.get_event_items(related_event) if related_event else []
+            extra_items = related_items[1:4]
+            self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Собираю другие источники по сюжету..."})
+            self._log_event("open_event_sources", user_id, item_id=item_id, source=anchor_item.source, topic=anchor_item.predicted_label)
+            if not extra_items:
+                self._send_message(chat_id, "По этому сюжету пока нет дополнительных источников, которые прошли фильтры ленты.")
+                return
+            headline = self._build_headline(self._clean_message_text(anchor_item.text))
+            self._send_message(chat_id, f"Другие источники по сюжету «{headline}»:")
+            for index, related_item in enumerate(extra_items, start=1):
+                self._send_message(
+                    chat_id,
+                self._format_news(
+                    related_item,
+                    explanation=self._build_explanation(
+                        related_item,
+                        profile,
+                        mode="similar",
+                        anchor_item=anchor_item,
+                    ),
+                    group=EventGroup(anchor=related_item, items=[related_item]),
+                    variant="related",
+                    event_index=index,
+                ),
+                    reply_markup={"inline_keyboard": self._news_actions_keyboard(related_item, profile)},
+                )
+            return
+
+        if data.startswith("mute_source:"):
+            item_id = data.split(":", 1)[1]
+            item = self.recommender.get_item(item_id)
+            if item is None:
+                self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Источник уже недоступен."})
+                return
+            if item.source in profile["muted_sources"]:
+                profile["muted_sources"].remove(item.source)
+                answer_text = f"Вернул источник «{self._display_source(item.source)}» в общую выдачу."
+                self._log_event("unmute_source", user_id, item_id=item_id, source=item.source, topic=item.predicted_label)
+            else:
+                profile["muted_sources"].append(item.source)
+                if item.source in profile["preferred_sources"]:
+                    profile["preferred_sources"].remove(item.source)
+                answer_text = f"Источник «{self._display_source(item.source)}» буду показывать реже."
+                self._log_event("mute_source", user_id, item_id=item_id, source=item.source, topic=item.predicted_label)
+            self.storage.update_profile(user_id, profile)
+            self._refresh_news_message_actions(callback["message"], item, profile)
+            self._api(
+                "answerCallbackQuery",
+                {"callback_query_id": callback_id, "text": answer_text},
+            )
+            return
+
+        if data.startswith("mute_topic:"):
+            item_id = data.split(":", 1)[1]
+            item = self.recommender.get_item(item_id)
+            if item is None:
+                self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Тема уже недоступна."})
+                return
+            topic_title = TOPIC_DISPLAY_MAP.get(item.predicted_label, item.predicted_label)
+            if item.predicted_label in profile["muted_topics"]:
+                profile["muted_topics"].remove(item.predicted_label)
+                answer_text = f"Вернул тему «{topic_title}» в ленту."
+                self._log_event("unmute_topic", user_id, item_id=item_id, source=item.source, topic=item.predicted_label)
+            else:
+                profile["muted_topics"].append(item.predicted_label)
+                if item.predicted_label in profile["selected_topics"]:
+                    profile["selected_topics"].remove(item.predicted_label)
+                answer_text = f"Тему «{topic_title}» убираю из активной ленты."
+                self._log_event("mute_topic", user_id, item_id=item_id, source=item.source, topic=item.predicted_label)
+            self.storage.update_profile(user_id, profile)
+            self._refresh_news_message_actions(callback["message"], item, profile)
+            self._api(
+                "answerCallbackQuery",
+                {"callback_query_id": callback_id, "text": answer_text},
+            )
+            return
+
+        if data.startswith("restore_source:"):
+            source = data.split(":", 1)[1]
+            if source in profile["muted_sources"]:
+                profile["muted_sources"].remove(source)
+                self.storage.update_profile(user_id, profile)
+                self._log_event("unmute_source", user_id, source=source)
+            self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": f"Источник «{self._display_source(source)}» возвращён."})
+            self._send_feed_controls(chat_id, user_id, updated=True)
+            return
+
+        if data.startswith("restore_topic:"):
+            topic = data.split(":", 1)[1]
+            if topic in profile["muted_topics"]:
+                profile["muted_topics"].remove(topic)
+                self.storage.update_profile(user_id, profile)
+                self._log_event("unmute_topic", user_id, topic=topic)
+            title = TOPIC_DISPLAY_MAP.get(topic, topic)
+            self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": f"Тема «{title}» возвращена."})
+            self._send_feed_controls(chat_id, user_id, updated=True)
+            return
+
+        if data == "restore_all_filters":
+            profile["muted_topics"] = []
+            profile["muted_sources"] = []
+            self.storage.update_profile(user_id, profile)
+            self._log_event("restore_all_filters", user_id)
+            self._api("answerCallbackQuery", {"callback_query_id": callback_id, "text": "Все скрытые темы и источники возвращены."})
+            self._send_feed_controls(chat_id, user_id, updated=True)
             return
 
         self._api("answerCallbackQuery", {"callback_query_id": callback_id})
@@ -265,6 +429,9 @@ class TelegramNewsBot:
             return
         if text == "🧾 Мой профиль":
             self._send_profile(chat_id, user_id)
+            return
+        if text == "🎛 Управление лентой":
+            self._send_feed_controls(chat_id, user_id)
             return
         if text == "🧹 Сбросить профиль":
             self._reset_profile(chat_id, user_id)
@@ -411,6 +578,13 @@ class TelegramNewsBot:
                 if import_result.status == "imported":
                     profile["custom_channel_last_imported"][channel] = import_result.imported_count
                 import_messages.append(self._format_import_result(import_result))
+                self._log_event(
+                    "custom_channel_import",
+                    user_id,
+                    channel=channel,
+                    status=import_result.status,
+                    imported_count=getattr(import_result, "imported_count", 0),
+                )
 
         profile["mode"] = "onboarding"
         self.storage.update_profile(user_id, profile)
@@ -447,6 +621,7 @@ class TelegramNewsBot:
                 }
             )
             self.storage.update_profile(user_id, profile)
+            self._log_event("onboarding_started", user_id, force_restart=force_restart)
             self._send_message(
                 chat_id,
                 "Привет! Сначала быстро соберём твой профиль, чтобы лента была персональной.",
@@ -504,7 +679,8 @@ class TelegramNewsBot:
             "1. При первом запуске мы собираем твой профиль.\n"
             "2. Потом бот строит персональную ленту по интересам, источникам и лайкам.\n"
             "3. Кнопка «🗞 Дайджест» собирает короткую подборку самого важного по твоему профилю.\n"
-            "4. Можно искать новости по запросу и добавлять свои каналы в профиль.\n\n"
+            "4. Можно искать новости по запросу и добавлять свои каналы в профиль.\n"
+            "5. У карточек есть быстрые действия: понять рекомендацию, ослабить источник или скрыть тему.\n\n"
             "Если Telegram client-сессия уже авторизована, свои каналы импортируются сразу и попадают в корпус рекомендаций.",
         )
 
@@ -521,6 +697,8 @@ class TelegramNewsBot:
             f"Онбординг завершён: {'да' if profile['onboarding_completed'] else 'нет'}\n"
             f"Интересы: {topics}\n"
             f"Источники: {sources}\n"
+            f"Скрытые темы: {self._format_topics_for_display(profile['muted_topics']) if profile['muted_topics'] else 'нет'}\n"
+            f"Скрытые источники: {', '.join(self._display_source(source) for source in profile['muted_sources']) if profile['muted_sources'] else 'нет'}\n"
             f"Свои каналы: {channels}\n"
             f"Статусы каналов: {self._format_channel_statuses(profile)}\n"
             f"Лайков: {len(profile['liked_ids'])}\n"
@@ -528,10 +706,26 @@ class TelegramNewsBot:
             f"Уже показано новостей: {len(profile['shown_ids'])}"
         )
         self._send_message(chat_id, message)
+        self._log_event("profile_view", user_id)
+
+    def _send_feed_controls(self, chat_id: int, user_id: int, updated: bool = False) -> None:
+        self._refresh_recommender_if_needed()
+        profile = self.storage.get_profile(user_id)
+        profile = self._sync_profile(user_id, profile)
+        muted_topics = self._format_topics_for_display(profile["muted_topics"]) if profile["muted_topics"] else "нет"
+        muted_sources = ", ".join(self._display_source(source) for source in profile["muted_sources"]) if profile["muted_sources"] else "нет"
+        intro = "Обновил настройки ленты." if updated else "Здесь можно быстро вернуть скрытые темы и источники."
+        self._send_message(
+            chat_id,
+            f"{intro}\n\nСкрытые темы: {muted_topics}\nСкрытые источники: {muted_sources}",
+            reply_markup=self._feed_controls_keyboard(profile),
+        )
+        self._log_event("feed_controls_view", user_id, muted_topics=profile["muted_topics"], muted_sources=profile["muted_sources"])
 
     def _reset_profile(self, chat_id: int, user_id: int) -> None:
         profile = self.storage.build_default_profile()
         self.storage.update_profile(user_id, profile)
+        self._log_event("profile_reset", user_id)
         self._send_message(chat_id, "Профиль очищен. Запускаю настройку заново.")
         self._start_or_restart(chat_id, user_id, profile, force_restart=True)
 
@@ -540,6 +734,13 @@ class TelegramNewsBot:
         profile["onboarding_stage"] = None
         profile["mode"] = "main"
         self.storage.update_profile(user_id, profile)
+        self._log_event(
+            "onboarding_completed",
+            user_id,
+            selected_topics=profile["selected_topics"],
+            preferred_sources=profile["preferred_sources"],
+            custom_channels=profile["custom_channels"],
+        )
         self._send_message(
             chat_id,
             "Профиль собран. Теперь я могу формировать твою персональную ленту.",
@@ -602,15 +803,19 @@ class TelegramNewsBot:
         profile = self.storage.get_profile(user_id)
         profile = self._sync_profile(user_id, profile)
         profile = self._refresh_custom_channels(user_id, profile)
-        recommendations = self.recommender.recommend_for_query(
-            text,
-            limit=3,
-            topics=self._selected_topics_filter(profile),
-            min_confidence=TOPIC_CONFIDENCE_THRESHOLD if profile["selected_topics"] else 0.0,
-            boosted_sources=self._boosted_sources(profile),
-            source_boost=0.15,
-            exclude_ids=set(profile["shown_ids"]).union(profile["disliked_ids"]),
+        recommendations = self._filter_items_for_profile(
+            self.recommender.recommend_events_for_query(
+                text,
+                limit=3,
+                topics=self._selected_topics_filter(profile),
+                min_confidence=TOPIC_CONFIDENCE_THRESHOLD if profile["selected_topics"] else 0.0,
+                boosted_sources=self._boosted_sources(profile),
+                source_boost=0.15,
+                exclude_ids=set(profile["shown_ids"]).union(profile["disliked_ids"]),
+            ),
+            profile,
         )
+        self._log_event("search_query", user_id, query=text, results=len(recommendations))
         self._send_news_batch(
             chat_id,
             user_id,
@@ -654,58 +859,66 @@ class TelegramNewsBot:
             groups,
             "Твой дайджест:",
             explanation_mode=explanation_mode,
+            card_variant="digest",
         )
 
-    def _collect_feed_items(self, profile: dict, limit: int) -> tuple[list[EventGroup], str, str]:
+    def _collect_feed_items(self, profile: dict, limit: int) -> tuple[list[EventCluster], str, str]:
         topics = self._selected_topics_filter(profile)
         boosted_sources = self._boosted_sources(profile)
         exclude_ids = set(profile["shown_ids"]).union(profile["disliked_ids"])
-        candidate_limit = max(limit * 4, limit + 6)
 
         if profile["liked_ids"]:
-            items = self.recommender.recommend_for_profile(
-                profile["liked_ids"],
-                limit=candidate_limit,
-                topics=topics,
-                min_confidence=TOPIC_CONFIDENCE_THRESHOLD if topics else 0.0,
-                boosted_sources=boosted_sources,
-                source_boost=0.12,
-                exclude_ids=exclude_ids,
-                diversify=False,
+            items = self._filter_items_for_profile(
+                self.recommender.recommend_events_for_profile(
+                    profile["liked_ids"],
+                    limit=limit,
+                    topics=topics,
+                    min_confidence=TOPIC_CONFIDENCE_THRESHOLD if topics else 0.0,
+                    boosted_sources=boosted_sources,
+                    source_boost=0.12,
+                    exclude_ids=exclude_ids,
+                ),
+                profile,
             )
-            return self._group_feed_items(items, limit), "Персональная лента по твоим интересам:", "profile"
+            return items, "Персональная лента по твоим интересам:", "profile"
 
         if topics:
-            items = self.recommender.recommend_for_topics(
-                limit=candidate_limit,
-                topics=topics,
-                min_confidence=TOPIC_CONFIDENCE_THRESHOLD,
-                boosted_sources=boosted_sources,
-                source_boost=0.10,
-                exclude_ids=exclude_ids,
-                diversify=False,
+            items = self._filter_items_for_profile(
+                self.recommender.recommend_events_for_topics(
+                    limit=limit,
+                    topics=topics,
+                    min_confidence=TOPIC_CONFIDENCE_THRESHOLD,
+                    boosted_sources=boosted_sources,
+                    source_boost=0.10,
+                    exclude_ids=exclude_ids,
+                ),
+                profile,
             )
-            return self._group_feed_items(items, limit), "Стартовая лента по выбранным интересам:", "topics"
+            return items, "Стартовая лента по выбранным интересам:", "topics"
 
-        items = self.recommender.latest(
-            limit=candidate_limit,
-            boosted_sources=boosted_sources,
-            source_boost=0.08,
-            diversify=False,
+        items = self._filter_items_for_profile(
+            self.recommender.latest_events(
+                limit=limit,
+                boosted_sources=boosted_sources,
+                source_boost=0.08,
+            ),
+            profile,
         )
-        return self._group_feed_items(items, limit), "Пока показываю свежие новости:", "latest"
+        return items, "Пока показываю свежие новости:", "latest"
 
     def _send_news_batch(
         self,
         chat_id: int,
         user_id: int,
-        groups: list[EventGroup],
+        groups: list[EventCluster],
         header: str,
         explanation_mode: str,
         query_text: str | None = None,
         anchor_item: NewsItem | None = None,
+        card_variant: str = "feed",
     ) -> None:
         if not groups:
+            self._log_event("feed_empty", user_id, explanation_mode=explanation_mode, header=header)
             self._send_message(
                 chat_id,
                 "Пока не нашёл постов, которые модель достаточно уверенно относит к выбранным темам. "
@@ -718,8 +931,12 @@ class TelegramNewsBot:
         profile = self._sync_profile(user_id, profile)
         last_ids: list[str] = []
 
-        for group in groups:
-            item = group.anchor
+        for index, event in enumerate(groups, start=1):
+            item = self.recommender.get_item(event.anchor_item_id)
+            if item is None:
+                continue
+            event_items = self.recommender.get_event_items(event)
+            render_group = EventGroup(anchor=item, items=event_items or [item])
             last_ids.append(item.item_id)
             if item.item_id not in profile["shown_ids"]:
                 profile["shown_ids"].append(item.item_id)
@@ -734,19 +951,30 @@ class TelegramNewsBot:
                         query_text=query_text,
                         anchor_item=anchor_item,
                     ),
-                    event_summary=self._build_event_summary(group),
+                    group=render_group,
+                    event_summary=self._build_event_summary(render_group),
+                    variant=card_variant,
+                    event_index=index,
                 ),
                 reply_markup={
-                    "inline_keyboard": [[
-                        {"text": "👍 Лайк", "callback_data": f"like:{item.item_id}"},
-                        {"text": "👎 Неинтересно", "callback_data": f"dislike:{item.item_id}"},
-                        {"text": "🔁 Похожее", "callback_data": f"more:{item.item_id}"},
-                    ]]
+                    "inline_keyboard": self._news_actions_keyboard(item, profile, has_event_sources=len(render_group.items) > 1)
                 },
             )
 
         profile["last_recommendations"] = last_ids
         self.storage.update_profile(user_id, profile)
+        self._log_event(
+            "feed_shown",
+            user_id,
+            explanation_mode=explanation_mode,
+            header=header,
+            item_ids=last_ids,
+            item_count=len(last_ids),
+            item_sources=[self.recommender.get_item(event.anchor_item_id).source for event in groups if self.recommender.get_item(event.anchor_item_id)],
+            item_topics=[event.topic for event in groups],
+            query_text=query_text,
+            anchor_item_id=anchor_item.item_id if anchor_item else None,
+        )
 
     def _send_message(self, chat_id: int, text: str, reply_markup: dict | None = None) -> None:
         payload = {
@@ -755,6 +983,20 @@ class TelegramNewsBot:
             "reply_markup": reply_markup or self._main_menu_keyboard(),
         }
         self._api("sendMessage", payload)
+
+    def _refresh_news_message_actions(self, message: dict, item: NewsItem, profile: dict) -> None:
+        message_id = message.get("message_id")
+        chat_id = message.get("chat", {}).get("id")
+        if not message_id or not chat_id:
+            return
+        self._api(
+            "editMessageReplyMarkup",
+            {
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "reply_markup": {"inline_keyboard": self._news_actions_keyboard(item, profile)},
+            },
+        )
 
     def _api(self, method: str, payload: dict) -> dict:
         body = json.dumps(payload).encode("utf-8")
@@ -778,11 +1020,11 @@ class TelegramNewsBot:
     def _boosted_sources(self, profile: dict) -> set[str] | None:
         sources = set()
         for source in profile["preferred_sources"]:
-            if source in self.recommender.sources:
+            if source in self.recommender.sources and source not in profile["muted_sources"]:
                 sources.add(source)
         for channel in profile["custom_channels"]:
             normalized = channel.lstrip("@")
-            if normalized in self.recommender.sources:
+            if normalized in self.recommender.sources and normalized not in profile["muted_sources"]:
                 sources.add(normalized)
         return sources or None
 
@@ -812,26 +1054,43 @@ class TelegramNewsBot:
             profile["preferred_sources"] = preferred_sources
             changed = True
 
+        muted_sources = [source for source in profile["muted_sources"] if source in self.recommender.sources]
+        if muted_sources != profile["muted_sources"]:
+            profile["muted_sources"] = muted_sources
+            changed = True
+
         if changed:
             self.storage.update_profile(user_id, profile)
         return profile
 
-    def _build_digest_intro(self, groups: list[EventGroup], profile: dict) -> str:
-        items = [group.anchor for group in groups]
-        topic_counts = Counter(item.predicted_label for item in items)
-        source_counts = Counter(item.source for item in items)
+    @staticmethod
+    def _filter_items_for_profile(items: list[NewsItem], profile: dict) -> list[NewsItem]:
+        muted_topics = set(profile.get("muted_topics", []))
+        muted_sources = set(profile.get("muted_sources", []))
+        return [
+            item
+            for item in items
+            if item.predicted_label not in muted_topics and item.source not in muted_sources
+        ]
+
+    def _build_digest_intro(self, groups: list[EventCluster], profile: dict) -> str:
+        topic_counts = Counter(group.topic for group in groups)
+        source_counts = Counter()
+        for group in groups:
+            for source in group.sources:
+                source_counts[source] += 1
         top_topics = ", ".join(
             TOPIC_DISPLAY_MAP.get(topic, topic)
             for topic, _ in topic_counts.most_common(3)
         )
-        top_sources = ", ".join(source for source, _ in source_counts.most_common(3))
+        top_sources = ", ".join(self._display_source(source) for source, _ in source_counts.most_common(3))
         selected_topics = self._format_topics_for_display(profile["selected_topics"]) if profile["selected_topics"] else "без фильтра по темам"
         return (
-            "Собрал короткий дайджест по твоему профилю.\n"
-            f"Твои темы: {selected_topics}\n"
-            f"Что преобладает в подборке: {top_topics or 'смешанная повестка'}\n"
-            f"Главные источники в дайджесте: {top_sources or 'разные'}\n"
-            f"Уникальных событий в подборке: {len(groups)}"
+            "Твой персональный дайджест готов.\n\n"
+            f"Темы профиля: {selected_topics}\n"
+            f"В этой подборке доминируют: {top_topics or 'смешанная повестка'}\n"
+            f"Главные источники: {top_sources or 'разные'}\n"
+            f"Уникальных сюжетов: {len(groups)}"
         )
 
     def _group_feed_items(self, items: list[NewsItem], limit: int) -> list[EventGroup]:
@@ -849,6 +1108,21 @@ class TelegramNewsBot:
             if len(groups) >= limit and len(items) <= limit:
                 break
         return groups[:limit]
+
+    def _event_group_for_anchor(self, anchor_item: NewsItem, profile: dict) -> EventGroup | None:
+        event = self.recommender.get_item_event(anchor_item.item_id)
+        if event is None:
+            return None
+        related_items = [
+            item for item in self.recommender.get_event_items(event)
+            if item.predicted_label not in set(profile.get("muted_topics", []))
+            and item.source not in set(profile.get("muted_sources", []))
+        ]
+        if not related_items:
+            return None
+        anchor = next((item for item in related_items if item.item_id == anchor_item.item_id), related_items[0])
+        ordered = [anchor] + [item for item in related_items if item.item_id != anchor.item_id]
+        return EventGroup(anchor=anchor, items=ordered)
 
     def _same_event(self, item: NewsItem, anchor: NewsItem) -> bool:
         if item.item_id == anchor.item_id:
@@ -872,10 +1146,46 @@ class TelegramNewsBot:
         for item in group.items:
             if item.source not in sources:
                 sources.append(item.source)
-        related_sources = ", ".join(sources[:4])
+        related_sources = ", ".join(TelegramNewsBot._display_source(source) for source in sources[:4])
         if len(sources) > 4:
             related_sources += ", ..."
-        return f"Событие подтверждается ещё в {len(group.items) - 1} публикациях: {related_sources}."
+        return f"В этом сюжете есть ещё {len(group.items) - 1} публикации: {related_sources}."
+
+    @classmethod
+    def _event_sources_preview(cls, group: EventGroup, limit: int = 3) -> str:
+        sources: list[str] = []
+        for item in group.items:
+            display = cls._display_source(item.source)
+            if display not in sources:
+                sources.append(display)
+        if not sources:
+            return "один источник"
+        preview = ", ".join(sources[:limit])
+        if len(sources) > limit:
+            preview += f" + ещё {len(sources) - limit}"
+        return preview
+
+    @classmethod
+    def _event_angles(cls, group: EventGroup, limit: int = 3) -> list[str]:
+        angles: list[str] = []
+        seen_sources: set[str] = set()
+        for item in group.items:
+            if item.source in seen_sources:
+                continue
+            seen_sources.add(item.source)
+            cleaned = cls._clean_message_text(item.text)
+            headline = cls._build_headline(cleaned)
+            excerpt = cls._build_excerpt(cleaned, headline)
+            source = cls._display_source(item.source)
+            snippet = excerpt or headline
+            if not snippet:
+                continue
+            if len(snippet) > 120:
+                snippet = snippet[:117].rstrip(" .,;:") + "..."
+            angles.append(f"• {source}: {snippet}")
+            if len(angles) >= limit:
+                break
+        return angles
 
     def _build_explanation(
         self,
@@ -908,6 +1218,23 @@ class TelegramNewsBot:
             reasons.append("модель уверенно относит её к твоей ленте")
         return "Почему это в ленте: " + "; ".join(reasons) + "."
 
+    def _build_why_message(self, item: NewsItem, profile: dict) -> str:
+        topic_title = TOPIC_DISPLAY_MAP.get(item.predicted_label, item.predicted_label)
+        source_title = self._display_source(item.source)
+        details = [
+            self._build_explanation(item, profile, mode="profile"),
+            f"Тема карточки: {topic_title}.",
+            f"Источник: {source_title}.",
+            f"Уверенность тематической модели: {item.predicted_confidence:.2f}.",
+        ]
+        if item.predicted_label in profile["selected_topics"]:
+            details.append("Тема входит в твой активный набор интересов.")
+        if item.source in profile["preferred_sources"]:
+            details.append("Источник отмечен как предпочтительный, поэтому получает дополнительный приоритет.")
+        if item.source in {channel.lstrip('@') for channel in profile["custom_channels"]}:
+            details.append("Новость пришла из канала, который ты сам добавил.")
+        return "Почему показал эту новость:\n\n" + "\n".join(f"• {detail}" for detail in details)
+
     @staticmethod
     def _normalize_selected_topics(profile: dict) -> dict:
         normalized: list[str] = []
@@ -920,6 +1247,11 @@ class TelegramNewsBot:
                 if mapped_topic not in normalized:
                     normalized.append(mapped_topic)
         profile["selected_topics"] = normalized
+        muted: list[str] = []
+        for topic in profile.get("muted_topics", []):
+            if topic in TOPIC_CHOICES and topic not in muted:
+                muted.append(topic)
+        profile["muted_topics"] = muted
         return profile
 
     @staticmethod
@@ -945,11 +1277,18 @@ class TelegramNewsBot:
         normalized = text.replace("\r", "\n")
         normalized = MARKDOWN_LINK_RE.sub(r"\1", normalized)
         normalized = URL_RE.sub(" ", normalized)
+        normalized = HASHTAG_RE.sub(" ", normalized)
         normalized = MARKUP_ARTIFACT_RE.sub(" ", normalized)
         normalized = normalized.replace("|", " ")
         normalized = re.sub(r"\s*\n\s*", "\n", normalized)
         normalized = re.sub(r"[ \t]+", " ", normalized)
         normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+        normalized = re.sub(
+            r"(подписывайтесь.*|читать далее.*|подробнее на сайте.*|источник:.*)$",
+            "",
+            normalized,
+            flags=re.IGNORECASE,
+        )
         return normalized.strip()
 
     @staticmethod
@@ -970,10 +1309,14 @@ class TelegramNewsBot:
         for part in parts:
             candidate = part.strip(" -\n")
             if len(candidate) >= 30:
-                return candidate[:120].rstrip(" .,;:") + ("..." if len(candidate) > 120 else "")
+                candidate = candidate[:120].rstrip(" .,;:")
+                return candidate[:1].upper() + candidate[1:] + ("..." if len(part.strip(" -\n")) > 120 else "")
         words = clean_text.split()
         fallback = " ".join(words[:14]).strip()
-        return fallback[:120].rstrip(" .,;:") + ("..." if len(words) > 14 else "")
+        fallback = fallback[:120].rstrip(" .,;:")
+        if not fallback:
+            return "Новость"
+        return fallback[:1].upper() + fallback[1:] + ("..." if len(words) > 14 else "")
 
     @staticmethod
     def _build_excerpt(clean_text: str, headline: str) -> str:
@@ -981,9 +1324,13 @@ class TelegramNewsBot:
         if headline and remainder.startswith(headline.rstrip(".")):
             remainder = remainder[len(headline.rstrip(".")):].lstrip(" .,:;-")
         remainder = re.sub(r"\s+", " ", remainder).strip()
-        if len(remainder) > 320:
-            remainder = remainder[:317].rstrip(" .,;:") + "..."
+        if len(remainder) > 240:
+            remainder = remainder[:237].rstrip(" .,;:") + "..."
         return remainder
+
+    @staticmethod
+    def _compact_explanation(explanation: str) -> str:
+        return explanation.removeprefix("Почему это в ленте: ").rstrip(".")
 
     @staticmethod
     def _format_date_for_card(value: str) -> str:
@@ -998,27 +1345,91 @@ class TelegramNewsBot:
         return SOURCE_DISPLAY_MAP.get(source, source.replace("_", " ").strip())
 
     @classmethod
-    def _format_news(cls, item: NewsItem, explanation: str, event_summary: str = "") -> str:
+    def _format_news(
+        cls,
+        item: NewsItem,
+        explanation: str,
+        group: EventGroup | None = None,
+        event_summary: str = "",
+        variant: str = "feed",
+        event_index: int | None = None,
+    ) -> str:
         cleaned = cls._clean_message_text(item.text)
         headline = cls._build_headline(cleaned)
         excerpt = cls._build_excerpt(cleaned, headline)
         topic = TOPIC_DISPLAY_MAP.get(item.predicted_label, item.predicted_label)
+        topic_icon = TOPIC_ICON_MAP.get(item.predicted_label, "📰")
         source = cls._display_source(item.source)
         date = cls._format_date_for_card(item.published_at)
         link = cls._extract_primary_link(item.text)
+        group = group or EventGroup(anchor=item, items=[item])
+        sources_preview = cls._event_sources_preview(group)
+        angles = cls._event_angles(group)
+
+        if variant == "digest":
+            title = f"{event_index}. {topic_icon} {headline or 'Новость'}" if event_index else f"{topic_icon} {headline or 'Новость'}"
+            parts = [
+                title,
+                f"{topic} • {source} • {date}",
+            ]
+            if excerpt:
+                parts.append(f"Что произошло: {excerpt}")
+            parts.append(f"Где это освещают: {sources_preview}")
+            if angles:
+                parts.append("Как это подают:\n" + "\n".join(angles))
+            if link:
+                parts.append(f"Где читать: {link}")
+            return "\n\n".join(parts)
+
+        if variant == "related":
+            parts = [
+                f"🧩 Источник {event_index or ''}: {source}".strip(),
+                f"{topic} • {date}",
+                f"Коротко: {excerpt or headline or 'Без краткого описания'}",
+            ]
+            if link:
+                parts.append(f"Ссылка: {link}")
+            return "\n\n".join(parts)
 
         parts = [
-            headline or "Новость",
+            f"{topic_icon} {headline or 'Новость'}",
             f"{topic} • {source} • {date}",
-            explanation,
         ]
-        if event_summary:
-            parts.append(event_summary)
+        parts.append(f"Источники сюжета: {sources_preview}")
         if excerpt:
-            parts.append(excerpt)
+            parts.append(f"Сводка: {excerpt}")
+        if angles:
+            parts.append("Разные углы:\n" + "\n".join(angles))
+        elif event_summary:
+            parts.append(f"Сюжет: {event_summary}")
         if link:
-            parts.append(f"Подробнее: {link}")
+            parts.append(f"Ссылка: {link}")
         return "\n\n".join(parts)
+
+    @classmethod
+    def _news_actions_keyboard(
+        cls,
+        item: NewsItem,
+        profile: dict,
+        has_event_sources: bool = False,
+    ) -> list[list[dict[str, str]]]:
+        source_button = "♻️ Вернуть источник" if item.source in profile.get("muted_sources", []) else "🚫 Источник"
+        topic_button = "♻️ Вернуть тему" if item.predicted_label in profile.get("muted_topics", []) else "🙈 Тема"
+        rows = [
+            [
+                {"text": "👍 Лайк", "callback_data": f"like:{item.item_id}"},
+                {"text": "👎 Неинтересно", "callback_data": f"dislike:{item.item_id}"},
+                {"text": "🔁 Похожее", "callback_data": f"more:{item.item_id}"},
+            ],
+            [
+                {"text": "✨ Почему", "callback_data": f"why:{item.item_id}"},
+                {"text": source_button, "callback_data": f"mute_source:{item.item_id}"},
+                {"text": topic_button, "callback_data": f"mute_topic:{item.item_id}"},
+            ],
+        ]
+        if has_event_sources:
+            rows.append([{"text": "🧩 Ещё по сюжету", "callback_data": f"eventmore:{item.item_id}"}])
+        return rows
 
     @staticmethod
     def _main_menu_keyboard() -> dict:
@@ -1064,6 +1475,17 @@ class TelegramNewsBot:
         rows.append([{"text": MORE_SOURCES_BUTTON}, {"text": ADD_CHANNEL_BUTTON}])
         rows.append([{"text": DONE_BUTTON}, {"text": SKIP_BUTTON}])
         return {"keyboard": rows, "resize_keyboard": True, "is_persistent": True}
+
+    @classmethod
+    def _feed_controls_keyboard(cls, profile: dict) -> dict:
+        rows: list[list[dict[str, str]]] = []
+        for topic in profile.get("muted_topics", [])[:6]:
+            rows.append([{"text": f"Вернуть тему: {TOPIC_DISPLAY_MAP.get(topic, topic)}", "callback_data": f"restore_topic:{topic}"}])
+        for source in profile.get("muted_sources", [])[:6]:
+            rows.append([{"text": f"Вернуть источник: {cls._display_source(source)}", "callback_data": f"restore_source:{source}"}])
+        if profile.get("muted_topics") or profile.get("muted_sources"):
+            rows.append([{"text": "♻️ Вернуть всё", "callback_data": "restore_all_filters"}])
+        return {"inline_keyboard": rows or [[{"text": "Лента уже чистая", "callback_data": "noop"}]]}
 
     @staticmethod
     def _custom_channel_input_keyboard() -> dict:

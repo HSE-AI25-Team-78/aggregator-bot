@@ -1,0 +1,15 @@
+{
+  "seed_rows": 258,
+  "selected_rows": 1381,
+  "augmented_train_rows": 1600,
+  "baseline_nb_f1_macro": 0.05754352030947776,
+  "previous_best_nb_f1_macro": 0.2584,
+  "final_nb_f1_macro": 0.032196969696969696,
+  "service_export_updated": false,
+  "selected_by_label": {
+    "Развлечения": 450,
+    "Искусство и культура": 403,
+    "ИТ и телекоммуникации": 393,
+    "История": 135
+  }
+}

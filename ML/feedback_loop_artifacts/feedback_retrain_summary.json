@@ -1,0 +1,15 @@
+{
+  "seed_rows": 258,
+  "feedback_rows": 1,
+  "replicated_feedback_rows": 2,
+  "augmented_train_rows": 221,
+  "baseline_logreg_f1_macro": 0.42001332001332004,
+  "baseline_nb_f1_macro": 0.05754352030947776,
+  "previous_best_nb_f1_macro": 0.2584,
+  "final_logreg_f1_macro": 0.4404329004329004,
+  "final_nb_f1_macro": 0.05754352030947776,
+  "service_export_updated": false,
+  "feedback_by_label": {
+    "Общество, государство, политика": 1
+  }
+}

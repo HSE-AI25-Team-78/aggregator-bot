@@ -45,6 +45,12 @@ ML/artifacts/
 service/config/
 ```
 
+Локальный MLflow tracking для финального обучения складывается в:
+
+```text
+ML/mlruns/
+```
+
 ---
 
 ##  Основной сценарий использования
@@ -113,6 +119,11 @@ Stratified split: train/val/test
 ### train_final_model.py  
 Финальная модель + сохранение TF-IDF/модели/LabelEncoder
 
+Дополнительно этот шаг теперь умеет:
+- сохранять итоговые classification reports и confusion matrices;
+- писать training summary в `ML/artifacts/results/final/training_summary.json`;
+- опционально логировать параметры, метрики и артефакты в локальный MLflow.
+
 ### viz/*  
 Графики: baseline -> tuning -> confusion matrix
 
@@ -150,5 +161,49 @@ python -m ml.experiments_vectorizers      # сравнение векториз�
 python -m ml.model_efficiency             # скорость обучения и инференса моделей
 python -m ml.feature_importance           # топ-слова по весам логистической регрессии
 ```
+
+### Локальный MLflow tracking
+
+По умолчанию локальный tracking включён для:
+
+- `aggregate_bot_modules.ml_module.baseline_models`
+- `aggregate_bot_modules.ml_module.train_final_model`
+- `ML/pseudo_label_pipeline.py`
+- `ML/targeted_weak_class_pipeline.py`
+
+Все эти шаги пишут run в один и тот же локальный `ML/mlruns/`, если пакет `mlflow-skinny`/`mlflow` установлен.
+
+Полезные переменные окружения:
+
+```bash
+ENABLE_MLFLOW=1
+MLFLOW_TRACKING_URI=file:///abs/path/to/ML/mlruns
+MLFLOW_EXPERIMENT_NAME=aggregator_bot_training
+MLFLOW_RUN_NAME=train_final_model
+```
+
+Если нужно полностью выключить tracking:
+
+```bash
+ENABLE_MLFLOW=0 python -m aggregate_bot_modules.ml_module.train_final_model
+```
+
+Если `mlflow` установлен, UI можно поднять локально так:
+
+```bash
+mlflow ui --backend-store-uri file:///ABS_PATH_TO/ML/mlruns
+```
+
+После этого открой:
+
+- `http://127.0.0.1:5000`
+
+В интерфейсе появятся отдельные experiments:
+
+- `aggregator_bot_baselines`
+- `aggregator_bot_training`
+- `aggregator_bot_pseudo_labeling`
+- `aggregator_bot_targeted_weak_classes`
+
 ---
 

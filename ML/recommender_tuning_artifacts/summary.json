@@ -1,0 +1,127 @@
+{
+  "score": 0.71293,
+  "summary": {
+    "overall": {
+      "topic_feed_precision_at_5": 0.86,
+      "similarity_precision_at_5": 0.5926,
+      "topic_coverage": 0.9091,
+      "topics_evaluated": 11,
+      "k": 5
+    },
+    "per_topic_topic_feed_precision": [
+      [
+        "Общее",
+        0.0
+      ],
+      [
+        "Наука и техника",
+        1.0
+      ],
+      [
+        "ИТ и телекоммуникации",
+        0.6
+      ],
+      [
+        "Общество, государство, политика",
+        1.0
+      ],
+      [
+        "Экономика",
+        1.0
+      ],
+      [
+        "Медицина",
+        0.8
+      ],
+      [
+        "Искусство и культура",
+        0.6
+      ],
+      [
+        "Развлечения",
+        0.6
+      ],
+      [
+        "Спорт",
+        1.0
+      ],
+      [
+        "История",
+        1.0
+      ],
+      [
+        "Происшествия",
+        1.0
+      ]
+    ],
+    "per_topic_similarity_precision": [
+      [
+        "Общее",
+        0.08
+      ],
+      [
+        "Наука и техника",
+        0.6933
+      ],
+      [
+        "ИТ и телекоммуникации",
+        0.1833
+      ],
+      [
+        "Общество, государство, политика",
+        0.8667
+      ],
+      [
+        "Экономика",
+        0.8267
+      ],
+      [
+        "Медицина",
+        0.8571
+      ],
+      [
+        "Искусство и культура",
+        0.6133
+      ],
+      [
+        "Развлечения",
+        0.3467
+      ],
+      [
+        "Спорт",
+        0.5714
+      ],
+      [
+        "История",
+        0.48
+      ],
+      [
+        "Происшествия",
+        1.0
+      ]
+    ],
+    "config_path": "C:\\Users\\Yaroslav\\Documents\\aggregator-bot\\ML\\recommender_tuning_artifacts\\candidate_config.json"
+  },
+  "config": {
+    "latest": {
+      "freshness_weight": 1.0,
+      "confidence_weight": 0.35
+    },
+    "topical": {
+      "confidence_weight": 0.52,
+      "freshness_weight": 0.24,
+      "topic_affinity_weight": 0.12,
+      "source_affinity_weight": 0.06
+    },
+    "general": {
+      "base_score_weight": 0.42,
+      "confidence_weight": 0.16,
+      "freshness_weight": 0.1,
+      "topic_affinity_weight": 0.18,
+      "source_affinity_weight": 0.04
+    },
+    "profile": {
+      "min_item_preference_weight": 0.1
+    }
+  }
+}

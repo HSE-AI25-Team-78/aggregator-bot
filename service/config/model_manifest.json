@@ -1,0 +1,56 @@
+{
+  "model_name": "CalibratedLinearSVC",
+  "task": "news_topic_classification",
+  "source_pipeline": "ML.train_stronger_deploy_model",
+  "class_count": 11,
+  "classes": [
+    "ИТ и телекоммуникации",
+    "Искусство и культура",
+    "История",
+    "Медицина",
+    "Наука и техника",
+    "Общее",
+    "Общество, государство, политика",
+    "Происшествия",
+    "Развлечения",
+    "Спорт",
+    "Экономика"
+  ],
+  "vectorizer": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 1,
+    "max_features": 15000,
+    "sublinear_tf": true,
+    "vocabulary_size": 15000
+  },
+  "test_metrics": {
+    "f1_macro": 0.3943389943389944,
+    "accuracy": 0.38461538461538464,
+    "precision_macro": 0.44787485242030695,
+    "recall_macro": 0.40043290043290036
+  },
+  "artifacts": {
+    "vectorizer": "C:\\Users\\Yaroslav\\Documents\\aggregator-bot\\service\\config\\vectorizer.pkl",
+    "label_encoder": "C:\\Users\\Yaroslav\\Documents\\aggregator-bot\\service\\config\\label_encoder.pkl",
+    "model": "C:\\Users\\Yaroslav\\Documents\\aggregator-bot\\service\\config\\models\\CalibratedLinearSVC.pkl"
+  },
+  "topicality_gate": {
+    "model_name": "LogisticRegression",
+    "task": "topical_vs_general_gate",
+    "general_threshold": 0.35,
+    "topical_threshold": 0.55,
+    "metrics": {
+      "accuracy": 0.8846153846153846,
+      "f1_binary": 0.9387755102040817,
+      "precision_binary": 0.8846153846153846,
+      "recall_binary": 1.0
+    },
+    "artifacts": {
+      "vectorizer": "C:\\Users\\Yaroslav\\Documents\\aggregator-bot\\service\\config\\topicality_gate_vectorizer.pkl",
+      "model": "C:\\Users\\Yaroslav\\Documents\\aggregator-bot\\service\\config\\topicality_gate.pkl"
+    }
+  }
+}

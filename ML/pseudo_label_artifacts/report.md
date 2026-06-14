@@ -23,10 +23,10 @@
 
 - Baseline LogisticRegression F1_macro: **0.4200**
 - Baseline MultinomialNB F1_macro: **0.0575**
-- Previous best exported MultinomialNB F1_macro: **0.2399**
+- Previous best exported MultinomialNB F1_macro: **0.2584**
 - Augmented LogisticRegression F1_macro: **0.2289**
 - Augmented MultinomialNB F1_macro: **0.2584**
-- Service export updated: **yes**
+- Service export updated: **no**
 
 ## Baseline NB report
 

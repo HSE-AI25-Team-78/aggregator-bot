@@ -1,6 +1,0 @@
-vectorizer,model,ngram_range,min_df,max_features,f1_macro,accuracy
-TfidfVectorizer,LinearSVC,"(1, 2)",5.0,20000,0.9405046704667533,0.944954128440367
-TfidfVectorizer,LogisticRegression,"(1, 2)",5.0,20000,0.9321917503928334,0.9394495412844037
-TfidfVectorizer,LogisticRegression,"(1, 1)",5.0,20000,0.9275660537251689,0.9351681957186544
-CountVectorizer,LogisticRegression,"(1, 1)",5.0,20000,0.9251405629645427,0.9308868501529052
-HashingVectorizer,LogisticRegression,"(1, 1)",,20000,0.9063149051774992,0.9174311926605505

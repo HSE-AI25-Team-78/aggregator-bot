@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import csv
+import json
 import pickle
+import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,8 +17,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from aggregate_bot_modules.ml_module.mlflow_utils import (  # noqa: E402
+    log_artifact_if_exists,
+    log_metrics,
+    log_params,
+    start_mlflow_run,
+)
+
 ML_DIR = PROJECT_ROOT / "ML"
 BOOTSTRAP_DIR = ML_DIR / "bootstrap"
 OUTPUT_DIR = ML_DIR / "pseudo_label_artifacts"
@@ -28,6 +39,8 @@ REVIEW_QUEUE_PATH = BOOTSTRAP_DIR / "review_queue.csv"
 SERVICE_CONFIG_DIR = PROJECT_ROOT / "service" / "config"
 SERVICE_MODELS_DIR = SERVICE_CONFIG_DIR / "models"
 REPORT_PATH = OUTPUT_DIR / "report.md"
+SUMMARY_PATH = OUTPUT_DIR / "summary.json"
+MANIFEST_PATH = SERVICE_CONFIG_DIR / "model_manifest.json"
 
 LABELS = [
     "Общее",
@@ -308,6 +321,32 @@ def read_previous_best_nb_f1() -> float:
     return 0.0
 
 
+def write_service_manifest(*, label_encoder: LabelEncoder, vectorizer: TfidfVectorizer, nb_f1: float) -> None:
+    manifest = {
+        "model_name": "MultinomialNB",
+        "task": "news_topic_classification",
+        "source_pipeline": "ML.pseudo_label_pipeline",
+        "class_count": len(label_encoder.classes_),
+        "classes": [str(label) for label in label_encoder.classes_],
+        "vectorizer": {
+            "ngram_range": [1, 2],
+            "min_df": 1,
+            "max_features": 15000,
+            "sublinear_tf": True,
+            "vocabulary_size": len(vectorizer.vocabulary_),
+        },
+        "test_metrics": {
+            "f1_macro": nb_f1,
+        },
+        "artifacts": {
+            "vectorizer": str((SERVICE_CONFIG_DIR / "vectorizer.pkl").resolve()),
+            "label_encoder": str((SERVICE_CONFIG_DIR / "label_encoder.pkl").resolve()),
+            "model": str((SERVICE_MODELS_DIR / "MultinomialNB.pkl").resolve()),
+        },
+    }
+    MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -352,16 +391,26 @@ def main() -> None:
 
     all_labeled_df = pd.concat([accepted_df, rejected_df], ignore_index=True)
 
-    accepted_df.to_csv(OUTPUT_DIR / "pseudo_labeled_selected.csv", index=False, encoding="utf-8")
-    rejected_df.to_csv(OUTPUT_DIR / "pseudo_labeled_rejected.csv", index=False, encoding="utf-8")
-    all_labeled_df.to_csv(OUTPUT_DIR / "pseudo_labeled_all.csv", index=False, encoding="utf-8")
-    augmented_train.to_csv(OUTPUT_DIR / "augmented_train_dataset.csv", index=False, encoding="utf-8")
+    selected_path = OUTPUT_DIR / "pseudo_labeled_selected.csv"
+    rejected_path = OUTPUT_DIR / "pseudo_labeled_rejected.csv"
+    all_path = OUTPUT_DIR / "pseudo_labeled_all.csv"
+    augmented_train_path = OUTPUT_DIR / "augmented_train_dataset.csv"
+
+    accepted_df.to_csv(selected_path, index=False, encoding="utf-8")
+    rejected_df.to_csv(rejected_path, index=False, encoding="utf-8")
+    all_labeled_df.to_csv(all_path, index=False, encoding="utf-8")
+    augmented_train.to_csv(augmented_train_path, index=False, encoding="utf-8")
 
     improved = final_nb_f1 >= max(baseline_nb_f1, previous_best_nb_f1)
     if improved:
         save_pickle(SERVICE_CONFIG_DIR / "vectorizer.pkl", final_models.vectorizer)
         save_pickle(SERVICE_CONFIG_DIR / "label_encoder.pkl", final_models.label_encoder)
         save_pickle(SERVICE_MODELS_DIR / "MultinomialNB.pkl", final_models.nb)
+        write_service_manifest(
+            label_encoder=final_models.label_encoder,
+            vectorizer=final_models.vectorizer,
+            nb_f1=final_nb_f1,
+        )
 
     report_lines = [
         "# Pseudo Label Pipeline Report",
@@ -403,7 +452,73 @@ def main() -> None:
             "```",
         ]
     )
-    (OUTPUT_DIR / "report.md").write_text("\n".join(report_lines), encoding="utf-8")
+    REPORT_PATH.write_text("\n".join(report_lines), encoding="utf-8")
+
+    summary = {
+        "seed_rows": len(seed_df),
+        "candidate_rows": len(candidate_df),
+        "accepted_rows": len(accepted_df),
+        "rejected_rows": len(rejected_df),
+        "augmented_train_rows": len(augmented_train),
+        "thresholds": {
+            "auto_accept_threshold": AUTO_ACCEPT_THRESHOLD,
+            "review_accept_threshold": REVIEW_ACCEPT_THRESHOLD,
+            "margin_threshold": MARGIN_THRESHOLD,
+        },
+        "metrics": {
+            "baseline_logreg_f1_macro": baseline_logreg_f1,
+            "baseline_nb_f1_macro": baseline_nb_f1,
+            "previous_best_nb_f1_macro": previous_best_nb_f1,
+            "final_logreg_f1_macro": final_logreg_f1,
+            "final_nb_f1_macro": final_nb_f1,
+        },
+        "service_export_updated": improved,
+        "accepted_by_label": dict(Counter(accepted_df["final_label"])),
+    }
+    SUMMARY_PATH.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    with start_mlflow_run(
+        project_root=PROJECT_ROOT,
+        experiment_name="aggregator_bot_pseudo_labeling",
+        run_name="pseudo_label_pipeline",
+        tags={
+            "pipeline": "ML.pseudo_label_pipeline",
+            "stage": "pseudo_labeling",
+        },
+    ) as mlflow_cfg:
+        if mlflow_cfg:
+            log_params(
+                {
+                    "seed_rows": len(seed_df),
+                    "candidate_rows": len(candidate_df),
+                    "auto_accept_threshold": AUTO_ACCEPT_THRESHOLD,
+                    "review_accept_threshold": REVIEW_ACCEPT_THRESHOLD,
+                    "margin_threshold": MARGIN_THRESHOLD,
+                }
+            )
+            log_metrics(
+                {
+                    "accepted_rows": len(accepted_df),
+                    "rejected_rows": len(rejected_df),
+                    "augmented_train_rows": len(augmented_train),
+                    "baseline_logreg_f1_macro": baseline_logreg_f1,
+                    "baseline_nb_f1_macro": baseline_nb_f1,
+                    "previous_best_nb_f1_macro": previous_best_nb_f1,
+                    "final_logreg_f1_macro": final_logreg_f1,
+                    "final_nb_f1_macro": final_nb_f1,
+                    "service_export_updated": float(improved),
+                }
+            )
+            for artifact_path in [
+                selected_path,
+                rejected_path,
+                all_path,
+                augmented_train_path,
+                REPORT_PATH,
+                SUMMARY_PATH,
+            ]:
+                log_artifact_if_exists(artifact_path)
+            print(f"[+] MLflow run logged to {mlflow_cfg['tracking_uri']} ({mlflow_cfg['experiment_name']}).")
 
     print(f"[+] Selected pseudo labels: {len(accepted_df)}")
     print(f"[+] Rejected pseudo labels: {len(rejected_df)}")

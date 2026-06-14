@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import csv
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .channel_importer import ChannelImporter, ImportResult, build_importer
@@ -33,9 +34,49 @@ LOW_PRIORITY_CHANNELS = {
     "minzdrav_ru",
     "codeblog",
 }
+FAST_NEWS_CHANNELS = {
+    "rbc_news",
+    "rian_ru",
+    "tass_agency",
+    "meduzalive",
+    "bbcrussian",
+    "rt_russian",
+    "ENews112",
+    "mosrutop",
+    "headlines_for_traders",
+    "d_code",
+    "politica_media",
+}
+MID_RETENTION_CHANNELS = {
+    "forbesrussia",
+    "kommersant",
+    "prime1",
+    "devschacht",
+    "codeblog",
+    "habr_com",
+    "IT_today_ru",
+    "sportsru",
+    "sportrian",
+    "aviadispet4er",
+    "madeinrussia_ru",
+}
+LONG_RETENTION_CHANNELS = {
+    "nplusone",
+    "postnauka",
+    "npnauka",
+    "minzdrav_ru",
+    "mediamedics",
+    "historyrussi",
+    "rf_history",
+    "kinostro4ka",
+    "karoartcinema",
+    "Russiacultura",
+    "mincultrussia",
+}
 
 STATUS_PATH = ROOT_DIR / "bot_data" / "refresh_status.json"
 BASE_DATA_DIR = ROOT_DIR / "data"
+BASE_CHANNELS_CONFIG = ROOT_DIR / "bot" / "config" / "base_channels.json"
 
 
 @dataclass(slots=True)
@@ -48,6 +89,8 @@ class RefreshEntry:
     status: str
     imported_count: int
     message: str
+    retention_days: int | None = None
+    kept_after_retention: int | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -55,6 +98,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--force", action="store_true", help="Refresh all channels regardless of staleness.")
     parser.add_argument("--base-limit", type=int, default=1500, help="How many latest posts to keep for base channels.")
     parser.add_argument("--custom-limit", type=int, default=600, help="How many latest posts to keep for user-added channels.")
+    parser.add_argument("--max-age-days", type=int, default=30, help="Drop news older than this many days from local CSV files.")
     parser.add_argument(
         "--status-path",
         default=str(STATUS_PATH),
@@ -78,6 +122,19 @@ def stale_minutes_for(channel: str, scope: str) -> int:
     return 90
 
 
+def retention_days_for(channel: str, scope: str, default_days: int) -> int:
+    normalized = channel.lstrip("@")
+    if scope == "custom":
+        return min(default_days, 30)
+    if normalized in FAST_NEWS_CHANNELS:
+        return min(default_days, 14)
+    if normalized in MID_RETENTION_CHANNELS:
+        return min(default_days, 30)
+    if normalized in LONG_RETENTION_CHANNELS:
+        return max(default_days, 90) if default_days < 90 else default_days
+    return default_days
+
+
 def output_path_for(scope: str, channel: str) -> Path:
     directory = IMPORTED_CHANNELS_DIR if scope == "custom" else BASE_DATA_DIR
     return directory / f"{channel.lstrip('@')}.csv"
@@ -92,10 +149,25 @@ def is_due(output_path: Path, stale_minutes: int, force: bool) -> bool:
 
 def collect_base_channels() -> list[str]:
     channels = []
+    seen_normalized: set[str] = set()
+    if BASE_CHANNELS_CONFIG.exists():
+        try:
+            payload = json.loads(BASE_CHANNELS_CONFIG.read_text(encoding="utf-8"))
+            for channel in payload.get("channels", []):
+                normalized = channel.lstrip("@") if isinstance(channel, str) else ""
+                if normalized and normalized not in seen_normalized:
+                    seen_normalized.add(normalized)
+                    channels.append(channel)
+        except json.JSONDecodeError:
+            pass
     for path in sorted(BASE_DATA_DIR.glob("*.csv")):
         if path.name == "all_channels_combined.csv":
             continue
-        channels.append(path.stem)
+        stem = path.stem
+        normalized = stem.lstrip("@")
+        if normalized not in seen_normalized:
+            seen_normalized.add(normalized)
+            channels.append(stem)
     return channels
 
 
@@ -116,11 +188,13 @@ def refresh_channels(
     scope: str,
     limit: int,
     force: bool,
+    max_age_days: int,
 ) -> list[RefreshEntry]:
     entries: list[RefreshEntry] = []
     for raw_channel in channels:
         channel = raw_channel if raw_channel.startswith("@") else f"@{raw_channel}"
         stale_minutes = stale_minutes_for(channel, scope)
+        retention_days = retention_days_for(channel, scope, default_days=max_age_days)
         output_path = output_path_for(scope, channel)
         due = is_due(output_path, stale_minutes=stale_minutes, force=force)
 
@@ -135,11 +209,14 @@ def refresh_channels(
                     status="config_missing",
                     imported_count=0,
                     message="API_ID/API_HASH are missing.",
+                    retention_days=retention_days,
+                    kept_after_retention=_prune_output_file(output_path, max_age_days=retention_days),
                 )
             )
             continue
 
         if not due:
+            kept_count = _prune_output_file(output_path, max_age_days=retention_days)
             entries.append(
                 RefreshEntry(
                     channel=channel,
@@ -150,12 +227,22 @@ def refresh_channels(
                     status="skipped",
                     imported_count=0,
                     message="Channel is still fresh enough.",
+                    retention_days=retention_days,
+                    kept_after_retention=kept_count,
                 )
             )
             continue
 
         result = importer.import_channel(channel, limit=limit)
-        entries.append(_entry_from_result(result, scope=scope, stale_minutes=stale_minutes, output_path=output_path))
+        entries.append(
+            _entry_from_result(
+                result,
+                scope=scope,
+                stale_minutes=stale_minutes,
+                output_path=output_path,
+                max_age_days=retention_days,
+            )
+        )
     return entries
 
 
@@ -164,7 +251,9 @@ def _entry_from_result(
     scope: str,
     stale_minutes: int,
     output_path: Path,
+    max_age_days: int,
 ) -> RefreshEntry:
+    kept_count = _prune_output_file(output_path, max_age_days=max_age_days) if output_path.exists() else None
     return RefreshEntry(
         channel=result.channel,
         scope=scope,
@@ -174,7 +263,43 @@ def _entry_from_result(
         status=result.status,
         imported_count=result.imported_count,
         message=result.message,
+        retention_days=max_age_days,
+        kept_after_retention=kept_count,
     )
+
+
+def _parse_row_datetime(value: str) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.strip().replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _prune_output_file(output_path: Path, max_age_days: int) -> int | None:
+    if not output_path.exists():
+        return None
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    with output_path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        fieldnames = reader.fieldnames
+        if not fieldnames:
+            return 0
+        kept_rows = []
+        for row in reader:
+            row_dt = _parse_row_datetime((row.get("date") or "").strip())
+            if row_dt is None or row_dt >= cutoff:
+                kept_rows.append(row)
+    with output_path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(kept_rows)
+    return len(kept_rows)
 
 
 def save_status(path: Path, entries: list[RefreshEntry]) -> None:
@@ -234,6 +359,7 @@ def main() -> None:
             scope="base",
             limit=args.base_limit,
             force=args.force,
+            max_age_days=args.max_age_days,
         )
     )
     entries.extend(
@@ -243,6 +369,7 @@ def main() -> None:
             scope="custom",
             limit=args.custom_limit,
             force=args.force,
+            max_age_days=args.max_age_days,
         )
     )
 

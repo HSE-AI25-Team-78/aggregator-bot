@@ -1,0 +1,43 @@
+{
+  "seed_rows": 258,
+  "selected_capped_rows": 2570,
+  "weak_selected_rows": 58,
+  "augmented_train_rows": 2847,
+  "previous_best_nb_f1_macro": 0.2584,
+  "baseline_nb_f1_macro": 0.05754352030947776,
+  "final_nb_f1_macro": 0.27413762707880357,
+  "final_logreg_f1_macro": 0.19953816237238697,
+  "service_export_updated": true,
+  "weak_rules": {
+    "Общество, государство, политика": {
+      "min_confidence": 0.34,
+      "min_margin": 0.17,
+      "require_proposed_match": true,
+      "limit": 220
+    },
+    "Медицина": {
+      "min_confidence": 0.29,
+      "min_margin": 0.09,
+      "require_proposed_match": true,
+      "limit": 70
+    },
+    "История": {
+      "min_confidence": 0.3,
+      "min_margin": 0.1,
+      "require_proposed_match": false,
+      "limit": 35
+    },
+    "Развлечения": {
+      "min_confidence": 0.36,
+      "min_margin": 0.12,
+      "require_proposed_match": true,
+      "limit": 80
+    },
+    "Общее": {
+      "min_confidence": 0.2,
+      "min_margin": 0.04,
+      "require_proposed_match": false,
+      "limit": 20
+    }
+  }
+}

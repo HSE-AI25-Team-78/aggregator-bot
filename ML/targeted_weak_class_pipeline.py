@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import pickle
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -11,8 +13,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from aggregate_bot_modules.ml_module.mlflow_utils import (  # noqa: E402
+    log_artifact_if_exists,
+    log_metrics,
+    log_params,
+    start_mlflow_run,
+)
+
 ML_DIR = PROJECT_ROOT / "ML"
 PSEUDO_DIR = ML_DIR / "pseudo_label_artifacts"
 OUTPUT_DIR = ML_DIR / "targeted_weak_class_artifacts"
@@ -21,6 +32,8 @@ RAW_LABELS_PATH = ML_DIR / "raw_posts_labeled.csv"
 SERVICE_CONFIG_DIR = PROJECT_ROOT / "service" / "config"
 SERVICE_MODELS_DIR = SERVICE_CONFIG_DIR / "models"
 PSEUDO_REPORT_PATH = ML_DIR / "pseudo_label_artifacts" / "report.md"
+SUMMARY_PATH = OUTPUT_DIR / "summary.json"
+MANIFEST_PATH = SERVICE_CONFIG_DIR / "model_manifest.json"
 
 LABELS = [
     "Общее",
@@ -197,6 +210,32 @@ def read_previous_best_nb_f1() -> float:
     return 0.0
 
 
+def write_service_manifest(*, label_encoder: LabelEncoder, vectorizer: TfidfVectorizer, nb_f1: float) -> None:
+    manifest = {
+        "model_name": "MultinomialNB",
+        "task": "news_topic_classification",
+        "source_pipeline": "ML.targeted_weak_class_pipeline",
+        "class_count": len(label_encoder.classes_),
+        "classes": [str(label) for label in label_encoder.classes_],
+        "vectorizer": {
+            "ngram_range": [1, 2],
+            "min_df": 1,
+            "max_features": 15000,
+            "sublinear_tf": True,
+            "vocabulary_size": len(vectorizer.vocabulary_),
+        },
+        "test_metrics": {
+            "f1_macro": nb_f1,
+        },
+        "artifacts": {
+            "vectorizer": str((SERVICE_CONFIG_DIR / "vectorizer.pkl").resolve()),
+            "label_encoder": str((SERVICE_CONFIG_DIR / "label_encoder.pkl").resolve()),
+            "model": str((SERVICE_MODELS_DIR / "MultinomialNB.pkl").resolve()),
+        },
+    }
+    MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -231,15 +270,24 @@ def main() -> None:
     final_logreg_f1, final_logreg_report = evaluate_model(final_vectorizer, final_logreg, final_le, test_df)
     final_nb_f1, final_nb_report = evaluate_model(final_vectorizer, final_nb, final_le, test_df)
 
-    capped_selected_df.to_csv(OUTPUT_DIR / "selected_capped.csv", index=False, encoding="utf-8")
-    weak_selected_df.to_csv(OUTPUT_DIR / "weak_class_selected.csv", index=False, encoding="utf-8")
-    augmented_train.to_csv(OUTPUT_DIR / "augmented_train_dataset.csv", index=False, encoding="utf-8")
+    selected_capped_path = OUTPUT_DIR / "selected_capped.csv"
+    weak_selected_path = OUTPUT_DIR / "weak_class_selected.csv"
+    augmented_train_path = OUTPUT_DIR / "augmented_train_dataset.csv"
+
+    capped_selected_df.to_csv(selected_capped_path, index=False, encoding="utf-8")
+    weak_selected_df.to_csv(weak_selected_path, index=False, encoding="utf-8")
+    augmented_train.to_csv(augmented_train_path, index=False, encoding="utf-8")
 
     updated = final_nb_f1 >= previous_best_nb_f1
     if updated:
         save_pickle(SERVICE_CONFIG_DIR / "vectorizer.pkl", final_vectorizer)
         save_pickle(SERVICE_CONFIG_DIR / "label_encoder.pkl", final_le)
         save_pickle(SERVICE_MODELS_DIR / "MultinomialNB.pkl", final_nb)
+        write_service_manifest(
+            label_encoder=final_le,
+            vectorizer=final_vectorizer,
+            nb_f1=final_nb_f1,
+        )
 
     lines = [
         "# Targeted Weak Class Pipeline Report",
@@ -276,7 +324,61 @@ def main() -> None:
             "```",
         ]
     )
-    (OUTPUT_DIR / "report.md").write_text("\n".join(lines), encoding="utf-8")
+    report_path = OUTPUT_DIR / "report.md"
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+
+    summary = {
+        "seed_rows": len(seed_df),
+        "selected_capped_rows": len(capped_selected_df),
+        "weak_selected_rows": len(weak_selected_df),
+        "augmented_train_rows": len(augmented_train),
+        "previous_best_nb_f1_macro": previous_best_nb_f1,
+        "baseline_nb_f1_macro": baseline_nb_f1,
+        "final_nb_f1_macro": final_nb_f1,
+        "final_logreg_f1_macro": final_logreg_f1,
+        "service_export_updated": updated,
+        "weak_rules": WEAK_RULES,
+    }
+    SUMMARY_PATH.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    with start_mlflow_run(
+        project_root=PROJECT_ROOT,
+        experiment_name="aggregator_bot_targeted_weak_classes",
+        run_name="targeted_weak_class_pipeline",
+        tags={
+            "pipeline": "ML.targeted_weak_class_pipeline",
+            "stage": "weak_class_targeting",
+        },
+    ) as mlflow_cfg:
+        if mlflow_cfg:
+            log_params(
+                {
+                    "seed_rows": len(seed_df),
+                    "selected_capped_rows": len(capped_selected_df),
+                    "weak_selected_rows": len(weak_selected_df),
+                    "cap_selected_count": len(CAP_SELECTED),
+                    "weak_rule_count": len(WEAK_RULES),
+                }
+            )
+            log_metrics(
+                {
+                    "baseline_nb_f1_macro": baseline_nb_f1,
+                    "previous_best_nb_f1_macro": previous_best_nb_f1,
+                    "final_nb_f1_macro": final_nb_f1,
+                    "final_logreg_f1_macro": final_logreg_f1,
+                    "augmented_train_rows": len(augmented_train),
+                    "service_export_updated": float(updated),
+                }
+            )
+            for artifact_path in [
+                selected_capped_path,
+                weak_selected_path,
+                augmented_train_path,
+                report_path,
+                SUMMARY_PATH,
+            ]:
+                log_artifact_if_exists(artifact_path)
+            print(f"[+] MLflow run logged to {mlflow_cfg['tracking_uri']} ({mlflow_cfg['experiment_name']}).")
 
     print(f"[+] Capped selected rows: {len(capped_selected_df)}")
     print(f"[+] Weak-class targeted rows: {len(weak_selected_df)}")

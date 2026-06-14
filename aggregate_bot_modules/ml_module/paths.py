@@ -21,6 +21,7 @@ RESULTS_DIR = ARTIFACTS_DIR / "results"
 BASELINE_RESULTS_DIR = RESULTS_DIR / "baseline"
 EXPERIMENTS_RESULTS_DIR = RESULTS_DIR / "experiments"
 FINAL_RESULTS_DIR = RESULTS_DIR / "final"
+MLFLOW_RUNS_DIR = ML_DIR / "mlruns"
 
 MODELS_DIR = ARTIFACTS_DIR / "models"
 LOGREG_MODELS_DIR = MODELS_DIR / "logreg_tfidf"
@@ -38,6 +39,7 @@ def ensure_artifact_dirs() -> None:
         BASELINE_RESULTS_DIR,
         EXPERIMENTS_RESULTS_DIR,
         FINAL_RESULTS_DIR,
+        MLFLOW_RUNS_DIR,
         LOGREG_MODELS_DIR,
         DEPLOY_MODELS_DIR,
         SERVICE_CONFIG_DIR,
