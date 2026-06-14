@@ -1,11 +1,11 @@
 import os
-from dotenv import load_dotenv
 from datetime import datetime
 from sqlalchemy import (
     create_engine, Integer, String, Boolean, Text, Float, DateTime, select, delete
 )
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column, Session
 from typing import Optional
+from sqlalchemy import text
 
 
 Base = declarative_base()
@@ -154,3 +154,12 @@ class DataAccessObject:
     def get_all_users(self):
         with Session(self.engine) as session:
             return session.execute(select(User)).scalars().all()
+
+    def healthcheck(self) -> bool:
+        try:
+            with self.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            return True
+        except Exception as e:
+            print(f"DB healthcheck failed: {e}")
+            return False

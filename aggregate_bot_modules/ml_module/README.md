@@ -1,6 +1,6 @@
 
 
-# ML Module — Machine Learning Pipeline
+# ML Module - Machine Learning Pipeline
 
 Этот модуль отвечает за **полный цикл обработки данных и обучения моделей**.
 Внутри реализован воспроизводимый ML-пайплайн, включающий предобработку текстов, разбиение выборок, обучение baseline-моделей, тюнинг, обучение финальной модели и построение визуализаций.
@@ -10,7 +10,7 @@
 ##  Структура
 
 ```
-ml/
+aggregate_bot_modules/ml_module/
 │
 ├── preprocess.py              # Шаг 1: очистка текстов и подготовка processed_posts.csv
 ├── dataset_split.py           # Шаг 2: stratified train/val/test split
@@ -25,6 +25,30 @@ ml/
     ├── plot_logreg_tuning.py
     ├── plot_confusion_matrix.py
     └── __init__.py
+```
+
+Канонический размеченный датасет:
+
+```text
+ML/raw_posts_labeled.csv
+```
+
+Все воспроизводимые артефакты пайплайна теперь складываются в:
+
+```text
+ML/artifacts/
+```
+
+Боевые артефакты для сервиса экспортируются в:
+
+```text
+service/config/
+```
+
+Локальный MLflow tracking для финального обучения складывается в:
+
+```text
+ML/mlruns/
 ```
 
 ---
@@ -56,8 +80,14 @@ python -m ml.run_all
 ##  Где искать результаты
 
 ```
-data/
-  results/
+ML/
+  artifacts/
+    processed_posts.csv
+    splits/
+      train.csv
+      val.csv
+      test.csv
+    results/
     baseline/
       baseline_results.csv
       baseline_f1.png
@@ -89,8 +119,13 @@ Stratified split: train/val/test
 ### train_final_model.py  
 Финальная модель + сохранение TF-IDF/модели/LabelEncoder
 
+Дополнительно этот шаг теперь умеет:
+- сохранять итоговые classification reports и confusion matrices;
+- писать training summary в `ML/artifacts/results/final/training_summary.json`;
+- опционально логировать параметры, метрики и артефакты в локальный MLflow.
+
 ### viz/*  
-Графики: baseline → tuning → confusion matrix
+Графики: baseline -> tuning -> confusion matrix
 
 ---
 
@@ -126,5 +161,49 @@ python -m ml.experiments_vectorizers      # сравнение векториз�
 python -m ml.model_efficiency             # скорость обучения и инференса моделей
 python -m ml.feature_importance           # топ-слова по весам логистической регрессии
 ```
+
+### Локальный MLflow tracking
+
+По умолчанию локальный tracking включён для:
+
+- `aggregate_bot_modules.ml_module.baseline_models`
+- `aggregate_bot_modules.ml_module.train_final_model`
+- `ML/pseudo_label_pipeline.py`
+- `ML/targeted_weak_class_pipeline.py`
+
+Все эти шаги пишут run в один и тот же локальный `ML/mlruns/`, если пакет `mlflow-skinny`/`mlflow` установлен.
+
+Полезные переменные окружения:
+
+```bash
+ENABLE_MLFLOW=1
+MLFLOW_TRACKING_URI=file:///abs/path/to/ML/mlruns
+MLFLOW_EXPERIMENT_NAME=aggregator_bot_training
+MLFLOW_RUN_NAME=train_final_model
+```
+
+Если нужно полностью выключить tracking:
+
+```bash
+ENABLE_MLFLOW=0 python -m aggregate_bot_modules.ml_module.train_final_model
+```
+
+Если `mlflow` установлен, UI можно поднять локально так:
+
+```bash
+mlflow ui --backend-store-uri file:///ABS_PATH_TO/ML/mlruns
+```
+
+После этого открой:
+
+- `http://127.0.0.1:5000`
+
+В интерфейсе появятся отдельные experiments:
+
+- `aggregator_bot_baselines`
+- `aggregator_bot_training`
+- `aggregator_bot_pseudo_labeling`
+- `aggregator_bot_targeted_weak_classes`
+
 ---
 

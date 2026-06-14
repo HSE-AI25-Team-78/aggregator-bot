@@ -8,8 +8,13 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import os
-from dotenv import load_dotenv
 import numpy as np
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency path
+    def load_dotenv(*args, **kwargs):
+        return False
 
 
 load_dotenv()
@@ -144,6 +149,49 @@ async def root():
     }
 
 
+@app.get('/health')
+async def health():
+    return {
+        'status': 'ok',
+        'service': 'aggregator-bot',
+        'timestamp': dt.utcnow().isoformat(),
+    }
+
+
+@app.get('/ready')
+async def ready():
+    artifact_status = p.get_model_artifact_status()
+    db_ok = dao.healthcheck()
+    ready_status = db_ok and all(
+        artifact_status[key]
+        for key in ('model', 'vectorizer', 'label_encoder')
+    )
+    payload = {
+        'status': 'ready' if ready_status else 'degraded',
+        'checks': {
+            'db': db_ok,
+            'artifacts': artifact_status,
+        },
+        'timestamp': dt.utcnow().isoformat(),
+    }
+    if not ready_status:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=payload,
+        )
+    return payload
+
+
+@app.get('/model-info')
+async def model_info():
+    manifest = p.load_model_manifest()
+    return {
+        'manifest': manifest,
+        'artifacts': p.get_model_artifact_status(),
+        'timestamp': dt.utcnow().isoformat(),
+    }
+
+
 @app.post('/forward', status_code=status.HTTP_200_OK)
 async def forward(item: PredictRequest) -> PredictResponse:
     log_data = {
@@ -155,7 +203,8 @@ async def forward(item: PredictRequest) -> PredictResponse:
     }
 
     try:
-        label = p.run_pipeline(item.text)
+        prediction = p.run_pipeline_with_meta(item.text)
+        label = prediction['label']
         if label is None:
             raise Exception('не удалось определить класс')
         log_data['label'] = label
@@ -174,7 +223,8 @@ async def forward(item: PredictRequest) -> PredictResponse:
 
     return PredictResponse(
         text=log_data['text'],
-        label=log_data['label']
+        label=log_data['label'],
+        confidence=prediction.get('confidence') if 'prediction' in locals() else None,
     )
 
 

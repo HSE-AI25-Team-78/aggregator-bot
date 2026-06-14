@@ -1,0 +1,59 @@
+{
+  "text_column": "text_clean",
+  "train_rows": 179,
+  "val_rows": 39,
+  "class_count": 11,
+  "classes": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10"
+  ],
+  "vectorizer": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 5,
+    "max_features": 20000,
+    "vocabulary_size": 242
+  },
+  "best_model": "LinearSVC",
+  "results": [
+    {
+      "model": "LinearSVC",
+      "f1_macro": 0.21474747474747471,
+      "accuracy": 0.4358974358974359,
+      "precision_macro": 0.20681818181818182,
+      "recall_macro": 0.24725829725829726
+    },
+    {
+      "model": "LogisticRegression",
+      "f1_macro": 0.09501025290498974,
+      "accuracy": 0.3333333333333333,
+      "precision_macro": 0.08016121809225257,
+      "recall_macro": 0.14285714285714285
+    },
+    {
+      "model": "KNN_k5",
+      "f1_macro": 0.08577712609970675,
+      "accuracy": 0.1794871794871795,
+      "precision_macro": 0.13095238095238096,
+      "recall_macro": 0.13939393939393938
+    },
+    {
+      "model": "MultinomialNB",
+      "f1_macro": 0.07111281952719585,
+      "accuracy": 0.28205128205128205,
+      "precision_macro": 0.06951871657754011,
+      "recall_macro": 0.11688311688311687
+    }
+  ]
+}

@@ -9,6 +9,7 @@ class PredictRequest(BaseModel):
 class PredictResponse(BaseModel):
     text: str
     label: str
+    confidence: Optional[float] = None
 
 class HistoryItem(BaseModel):
     id: int

@@ -1,0 +1,32 @@
+{
+  "seed_rows": 258,
+  "candidate_rows": 6000,
+  "accepted_rows": 3750,
+  "rejected_rows": 2250,
+  "augmented_train_rows": 3969,
+  "thresholds": {
+    "auto_accept_threshold": 0.53,
+    "review_accept_threshold": 0.62,
+    "margin_threshold": 0.1
+  },
+  "metrics": {
+    "baseline_logreg_f1_macro": 0.42001332001332004,
+    "baseline_nb_f1_macro": 0.05754352030947776,
+    "previous_best_nb_f1_macro": 0.2584,
+    "final_logreg_f1_macro": 0.2289371947125958,
+    "final_nb_f1_macro": 0.25837924701561066
+  },
+  "service_export_updated": false,
+  "accepted_by_label": {
+    "ИТ и телекоммуникации": 750,
+    "Происшествия": 250,
+    "Экономика": 500,
+    "История": 250,
+    "Искусство и культура": 500,
+    "Развлечения": 250,
+    "Медицина": 250,
+    "Наука и техника": 500,
+    "Общество, государство, политика": 250,
+    "Спорт": 250
+  }
+}

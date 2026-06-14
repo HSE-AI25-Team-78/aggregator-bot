@@ -64,6 +64,27 @@ parser-module/*.session-journal
 data/models/*
 *.joblib
 *.pkl
+ML/mlruns/
+bot_data/
+
+# Generated news corpora and training CSV artifacts
+data/*.csv
+data/raw/*.csv
+data/results/**/*.csv
+ML/bootstrap/*.csv
+ML/pseudo_label_artifacts/*.csv
+ML/targeted_weak_class_artifacts/*.csv
+ML/feedback_loop_artifacts/*.csv
+ML/gate_bootstrap_artifacts/*.csv
+ML/targeted_gate_bootstrap_v2_artifacts/*.csv
+ML/recommender_tuning_artifacts/*.csv
+
+# Keep deploy/runtime model artifacts in repo
+!service/config/label_encoder.pkl
+!service/config/vectorizer.pkl
+!service/config/topicality_gate.pkl
+!service/config/topicality_gate_vectorizer.pkl
+!service/config/models/CalibratedLinearSVC.pkl
 
 
 

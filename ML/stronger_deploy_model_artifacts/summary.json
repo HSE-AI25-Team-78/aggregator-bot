@@ -1,0 +1,32 @@
+{
+  "seed_rows": 258,
+  "augmented_train_rows": 2847,
+  "test_rows": 39,
+  "previous_best_nb_f1_macro": 0.2584,
+  "best_model": "CalibratedLinearSVC",
+  "best_f1_macro": 0.3943389943389944,
+  "service_export_updated": true,
+  "results": [
+    {
+      "model_name": "CalibratedLinearSVC",
+      "f1_macro": 0.3943389943389944,
+      "accuracy": 0.38461538461538464,
+      "precision_macro": 0.44787485242030695,
+      "recall_macro": 0.40043290043290036
+    },
+    {
+      "model_name": "SGDClassifier_log_loss",
+      "f1_macro": 0.29668109668109666,
+      "accuracy": 0.41025641025641024,
+      "precision_macro": 0.2983077528532074,
+      "recall_macro": 0.32287157287157287
+    },
+    {
+      "model_name": "LogisticRegression",
+      "f1_macro": 0.19953816237238697,
+      "accuracy": 0.2564102564102564,
+      "precision_macro": 0.2824675324675325,
+      "recall_macro": 0.2211399711399711
+    }
+  ]
+}

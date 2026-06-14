@@ -1,0 +1,15 @@
+{
+  "total_candidates": 11,
+  "accepted_candidates": 1,
+  "rejected_candidates": 10,
+  "accepted_by_label": {
+    "Общество, государство, политика": 1
+  },
+  "rejected_by_label": {
+    "Общество, государство, политика": 5,
+    "Наука и техника": 4,
+    "ИТ и телекоммуникации": 1
+  },
+  "mean_feedback_score": 0.1955,
+  "mean_accepted_confidence": 0.8645
+}

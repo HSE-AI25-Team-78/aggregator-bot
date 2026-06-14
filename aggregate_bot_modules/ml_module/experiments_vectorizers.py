@@ -1,23 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer, HashingVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import LinearSVC
+from .paths import EXPERIMENTS_RESULTS_DIR, TRAIN_PATH, VAL_PATH, ensure_artifact_dirs
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-SPLIT_DIR = DATA_DIR / "splits"
-
-TRAIN_PATH = SPLIT_DIR / "train.csv"
-VAL_PATH = SPLIT_DIR / "val.csv"
-
-RESULTS_DIR = DATA_DIR / "results" / "experiments"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-RESULTS_PATH = RESULTS_DIR / "vectorizers.csv"
+RESULTS_PATH = EXPERIMENTS_RESULTS_DIR / "vectorizers.csv"
 
 
 def load_data():
@@ -37,6 +28,7 @@ def load_data():
 
 
 def main():
+    ensure_artifact_dirs()
     X_train_text, X_val_text, y_train, y_val = load_data()
 
     configs = []

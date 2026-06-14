@@ -1,20 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 from sklearn.model_selection import train_test_split
-
-# Папка с данными
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-
-PROCESSED_PATH = DATA_DIR / "processed_posts.csv"
-
-# Новая папка для train/val/test
-SPLIT_DIR = DATA_DIR / "splits"
-TRAIN_PATH = SPLIT_DIR / "train.csv"
-VAL_PATH = SPLIT_DIR / "val.csv"
-TEST_PATH = SPLIT_DIR / "test.csv"
+from .paths import PROCESSED_PATH, SPLIT_DIR, TEST_PATH, TRAIN_PATH, VAL_PATH, ensure_artifact_dirs
 
 
 def main(
@@ -61,7 +49,7 @@ def main(
     print(f"[*] Train: {len(df_train)}, Val: {len(df_val)}, Test: {len(df_test)}")
 
     # Создаём папку splits/
-    SPLIT_DIR.mkdir(exist_ok=True)
+    ensure_artifact_dirs()
 
     # Сохраняем
     df_train.to_csv(TRAIN_PATH, index=False)

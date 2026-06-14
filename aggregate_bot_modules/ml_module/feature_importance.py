@@ -1,22 +1,14 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import joblib
 import numpy as np
 import pandas as pd
+from .paths import FINAL_RESULTS_DIR, LOGREG_MODELS_DIR, ensure_artifact_dirs
 
-# Пути к данным и моделям
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-MODELS_DIR = DATA_DIR / "models" / "logreg_tfidf"
-
-TFIDF_PATH = MODELS_DIR / "tfidf.joblib"
-MODEL_PATH = MODELS_DIR / "logreg_model.joblib"
-LE_PATH = MODELS_DIR / "label_encoder.joblib"
-
-RESULTS_DIR = DATA_DIR / "results" / "final"
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-OUT_PATH = RESULTS_DIR / "top_words_per_class.csv"
+TFIDF_PATH = LOGREG_MODELS_DIR / "tfidf.joblib"
+MODEL_PATH = LOGREG_MODELS_DIR / "logreg_model.joblib"
+LE_PATH = LOGREG_MODELS_DIR / "label_encoder.joblib"
+OUT_PATH = FINAL_RESULTS_DIR / "top_words_per_class.csv"
 
 
 def main(top_n: int = 20) -> None:
@@ -26,6 +18,7 @@ def main(top_n: int = 20) -> None:
     предсказание в сторону этого класса.
     """
 
+    ensure_artifact_dirs()
     if not TFIDF_PATH.exists() or not MODEL_PATH.exists() or not LE_PATH.exists():
         raise FileNotFoundError(
             "Не найдены tfidf/model/label_encoder. "
